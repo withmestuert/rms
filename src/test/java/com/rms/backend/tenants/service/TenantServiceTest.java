@@ -1,5 +1,8 @@
 package com.rms.backend.tenants.service;
 
+import com.rms.backend.admissions.entity.Admission;
+import com.rms.backend.admissions.entity.AdmissionStatus;
+import com.rms.backend.admissions.repository.AdmissionRepository;
 import com.rms.backend.exception.DuplicateResourceException;
 import com.rms.backend.exception.ResourceNotFoundException;
 import com.rms.backend.rooms.entity.Room;
@@ -16,6 +19,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -30,6 +35,9 @@ class TenantServiceTest {
 
     @Mock
     private RoomRepository roomRepository;
+
+    @Mock
+    private AdmissionRepository admissionRepository;
 
     @InjectMocks
     private TenantService tenantService;
@@ -195,5 +203,71 @@ class TenantServiceTest {
         verify(tenantRepository, times(1)).delete(tenant);
         assertTrue(sampleRoom.getAvailable());
         verify(roomRepository, times(1)).save(sampleRoom);
+    }
+
+    @Test
+    @DisplayName("verifyAdvancePayment updates status to PAID and updates amount when provided")
+    void testVerifyAdvancePaymentWithoutPendingAdmissions() {
+        Tenant tenant = new Tenant();
+        tenant.setUid("T-101");
+        tenant.setAdvancePaid(5000);
+        tenant.setAdvancePaidStatus(AdvancePaidStatus.PENDING);
+
+        when(tenantRepository.findById("T-101")).thenReturn(Optional.of(tenant));
+        when(admissionRepository.findByTenant_Uid("T-101")).thenReturn(Collections.emptyList());
+        when(tenantRepository.save(any(Tenant.class))).thenAnswer(i -> i.getArgument(0));
+
+        Tenant result = tenantService.verifyAdvancePayment("T-101", 10000);
+
+        assertNotNull(result);
+        assertEquals(AdvancePaidStatus.PAID, result.getAdvancePaidStatus());
+        assertEquals(10000, result.getAdvancePaid());
+        verify(tenantRepository, times(1)).save(tenant);
+    }
+
+    @Test
+    @DisplayName("verifyAdvancePayment confirms pending admission and adjusts room capacity")
+    void testVerifyAdvancePaymentWithPendingAdmission() {
+        Tenant tenant = new Tenant();
+        tenant.setUid("T-101");
+        tenant.setAdvancePaid(5000);
+        tenant.setAdvancePaidStatus(AdvancePaidStatus.PENDING);
+
+        Room room = new Room();
+        room.setRoomNo("101");
+        room.setOccupancy(2);
+        room.setCurrentOccupancy(0);
+        room.setReservedCapacity(1);
+        room.setAvailable(true);
+
+        Admission admission = new Admission();
+        admission.setAdmissionNumber("ADM-001");
+        admission.setStatus(AdmissionStatus.PENDING);
+        admission.setRoom(room);
+
+        when(tenantRepository.findById("T-101")).thenReturn(Optional.of(tenant));
+        when(admissionRepository.findByTenant_Uid("T-101")).thenReturn(List.of(admission));
+        when(tenantRepository.save(any(Tenant.class))).thenAnswer(i -> i.getArgument(0));
+
+        Tenant result = tenantService.verifyAdvancePayment("T-101", null);
+
+        assertNotNull(result);
+        assertEquals(AdvancePaidStatus.PAID, result.getAdvancePaidStatus());
+        assertEquals(AdmissionStatus.PAID, admission.getStatus());
+        assertNotNull(admission.getConfirmedOn());
+        assertEquals(0, room.getReservedCapacity());
+        assertEquals(1, room.getCurrentOccupancy());
+        verify(admissionRepository, times(1)).save(admission);
+        verify(roomRepository, times(1)).save(room);
+        verify(tenantRepository, times(1)).save(tenant);
+    }
+
+    @Test
+    @DisplayName("verifyAdvancePayment throws ResourceNotFoundException when tenant does not exist")
+    void testVerifyAdvancePaymentNotFound() {
+        when(tenantRepository.findById("nonexistent")).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> tenantService.verifyAdvancePayment("nonexistent", 5000));
+        verify(tenantRepository, never()).save(any());
     }
 }

@@ -141,4 +141,18 @@ class TenantControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string("Tenant deleted successfully"));
     }
+
+    @Test
+    @DisplayName("PUT /api/tenants/{uid}/verify-advance returns 200 OK with PAID status")
+    void testVerifyAdvancePayment() throws Exception {
+        sampleTenant.setAdvancePaidStatus(AdvancePaidStatus.PAID);
+        when(tenantService.verifyAdvancePayment("T-201", 10000)).thenReturn(sampleTenant);
+
+        mockMvc.perform(put("/api/tenants/T-201/verify-advance")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\": 10000}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.uid").value("T-201"))
+                .andExpect(jsonPath("$.advancePaidStatus").value("PAID"));
+    }
 }

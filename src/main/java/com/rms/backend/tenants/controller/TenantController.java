@@ -62,4 +62,15 @@ public class TenantController {
 
         return ResponseEntity.ok("Tenant deleted successfully");
     }
+
+    @PutMapping("/{uid}/verify-advance")
+    public ResponseEntity<Tenant> verifyAdvancePayment(
+            @PathVariable String uid,
+            @RequestBody(required = false) java.util.Map<String, Integer> request) {
+
+        Integer amount = (request != null && request.containsKey("amount")) ? request.get("amount") : null;
+        Tenant verified = tenantService.verifyAdvancePayment(uid, amount);
+
+        return ResponseEntity.ok(verified);
+    }
 }

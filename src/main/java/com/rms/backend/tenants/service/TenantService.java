@@ -1,5 +1,8 @@
 package com.rms.backend.tenants.service;
 
+import com.rms.backend.admissions.entity.Admission;
+import com.rms.backend.admissions.entity.AdmissionStatus;
+import com.rms.backend.admissions.repository.AdmissionRepository;
 import com.rms.backend.exception.DuplicateResourceException;
 import com.rms.backend.exception.ResourceNotFoundException;
 import com.rms.backend.rooms.entity.Room;
@@ -11,6 +14,7 @@ import com.rms.backend.tenants.repository.TenantRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 //tested
 
@@ -19,10 +23,14 @@ public class TenantService {
 
     private final TenantRepository tenantRepository;
     private final RoomRepository roomRepository;
+    private final AdmissionRepository admissionRepository;
 
-    public TenantService(TenantRepository tenantRepository, RoomRepository roomRepository) {
+    public TenantService(TenantRepository tenantRepository,
+                         RoomRepository roomRepository,
+                         AdmissionRepository admissionRepository) {
         this.tenantRepository = tenantRepository;
         this.roomRepository = roomRepository;
+        this.admissionRepository = admissionRepository;
     }
 
     @Transactional
@@ -179,5 +187,37 @@ public class TenantService {
             room.setAvailable(true);
             roomRepository.save(room);
         });
+    }
+
+    @Transactional
+    public Tenant verifyAdvancePayment(String uid, Integer amount) {
+        Tenant tenant = tenantRepository.findById(uid)
+                .orElseThrow(() -> new ResourceNotFoundException("Tenant not found with UID: " + uid));
+
+        tenant.setAdvancePaidStatus(AdvancePaidStatus.PAID);
+        if (amount != null && amount > 0) {
+            tenant.setAdvancePaid(amount);
+        }
+
+        // If there is an associated pending admission, confirm it and adjust room capacities
+        List<Admission> pendingAdmissions = admissionRepository.findByTenant_Uid(uid).stream()
+                .filter(adm -> adm.getStatus() == AdmissionStatus.PENDING)
+                .toList();
+
+        for (Admission admission : pendingAdmissions) {
+            admission.setStatus(AdmissionStatus.PAID);
+            admission.setConfirmedOn(LocalDateTime.now());
+            admissionRepository.save(admission);
+
+            Room room = admission.getRoom();
+            if (room != null) {
+                room.setReservedCapacity(Math.max(0, room.getReservedCapacity() - 1));
+                room.setCurrentOccupancy(room.getCurrentOccupancy() + 1);
+                room.recalculateAvailability();
+                roomRepository.save(room);
+            }
+        }
+
+        return tenantRepository.save(tenant);
     }
 }

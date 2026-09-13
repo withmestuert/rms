@@ -62,4 +62,14 @@ public class GlobalExceptionHandler {
                 HttpStatus.BAD_REQUEST
         );
     }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<String> handleDataIntegrityViolationException(
+            org.springframework.dao.DataIntegrityViolationException exception) {
+
+        return new ResponseEntity<>(
+                "Database conflict: Cannot delete or modify resource because it is referenced by other records",
+                HttpStatus.CONFLICT
+        );
+    }
 }

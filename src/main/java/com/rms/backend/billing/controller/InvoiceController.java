@@ -1,0 +1,56 @@
+package com.rms.backend.billing.controller;
+
+import com.rms.backend.billing.dto.*;
+import com.rms.backend.billing.entity.InvoiceStatus;
+import com.rms.backend.billing.service.BillingService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/invoices")
+@RequiredArgsConstructor
+@CrossOrigin(origins = "*")
+public class InvoiceController {
+
+    private final BillingService billingService;
+
+    @GetMapping
+    public ResponseEntity<List<InvoiceResponseDto>> getAllInvoices(
+            @RequestParam(required = false) String monthYear,
+            @RequestParam(required = false) InvoiceStatus status) {
+        List<InvoiceResponseDto> invoices = billingService.getAllInvoices(monthYear, status);
+        return ResponseEntity.ok(invoices);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<InvoiceResponseDto> getInvoiceById(@PathVariable Long id) {
+        InvoiceResponseDto invoice = billingService.getInvoiceById(id);
+        return ResponseEntity.ok(invoice);
+    }
+
+    @PostMapping
+    public ResponseEntity<InvoiceResponseDto> createInvoice(@Valid @RequestBody InvoiceRequestDto dto) {
+        InvoiceResponseDto created = billingService.createInvoice(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @PostMapping("/generate-cycle")
+    public ResponseEntity<CycleGenerationResultDto> generateCycleInvoices(
+            @Valid @RequestBody CycleGenerationRequestDto dto) {
+        CycleGenerationResultDto result = billingService.generateCycleInvoices(dto);
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/{id}/pay")
+    public ResponseEntity<InvoiceResponseDto> recordPayment(
+            @PathVariable Long id,
+            @Valid @RequestBody RecordPaymentDto dto) {
+        InvoiceResponseDto updated = billingService.recordPayment(id, dto);
+        return ResponseEntity.ok(updated);
+    }
+}

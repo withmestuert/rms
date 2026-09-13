@@ -1,8 +1,12 @@
 package com.rms.backend.rooms.service;
 
+import com.rms.backend.admissions.entity.Admission;
+import com.rms.backend.admissions.repository.AdmissionRepository;
 import com.rms.backend.rooms.entity.Room;
 import com.rms.backend.rooms.repository.RoomRepository;
+import com.rms.backend.tenants.repository.TenantRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import com.rms.backend.rooms.dto.RoomRequestDto;
 import com.rms.backend.exception.ResourceNotFoundException;
 import com.rms.backend.exception.DuplicateResourceException;
@@ -13,9 +17,15 @@ import java.util.List;
 public class RoomService {
 
     private final RoomRepository roomRepository;
+    private final TenantRepository tenantRepository;
+    private final AdmissionRepository admissionRepository;
 
-    public RoomService(RoomRepository roomRepository) {
+    public RoomService(RoomRepository roomRepository,
+                       TenantRepository tenantRepository,
+                       AdmissionRepository admissionRepository) {
         this.roomRepository = roomRepository;
+        this.tenantRepository = tenantRepository;
+        this.admissionRepository = admissionRepository;
     }
 
     public Room createRoom(Room room) {
@@ -75,6 +85,7 @@ public class RoomService {
     }
 
     //Method to delete room
+    @Transactional
     public void deleteRoom(String roomNo) {
 
         Room existingRoom = roomRepository.findById(roomNo)
@@ -83,6 +94,32 @@ public class RoomService {
                                 "Room not found with room number: " + roomNo
                         )
                 );
+
+        if (existingRoom.getCurrentOccupancy() != null && existingRoom.getCurrentOccupancy() > 0) {
+            throw new DuplicateResourceException(
+                    "Cannot delete room " + roomNo + " because it is currently occupied (" + existingRoom.getCurrentOccupancy() + " occupant(s))"
+            );
+        }
+
+        if (existingRoom.getReservedCapacity() != null && existingRoom.getReservedCapacity() > 0) {
+            throw new DuplicateResourceException(
+                    "Cannot delete room " + roomNo + " because it has active reservations (" + existingRoom.getReservedCapacity() + " reserved slot(s))"
+            );
+        }
+
+        long tenantCount = tenantRepository.countByRoomNo(roomNo);
+        if (tenantCount > 0) {
+            throw new DuplicateResourceException(
+                    "Cannot delete room " + roomNo + " because " + tenantCount + " tenant(s) are assigned to it"
+            );
+        }
+
+        List<Admission> admissions = admissionRepository.findByRoom_RoomNo(roomNo);
+        if (!admissions.isEmpty()) {
+            throw new DuplicateResourceException(
+                    "Cannot delete room " + roomNo + " because " + admissions.size() + " admission record(s) reference it"
+            );
+        }
 
         roomRepository.delete(existingRoom);
     }
