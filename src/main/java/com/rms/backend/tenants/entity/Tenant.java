@@ -50,10 +50,20 @@ public class Tenant {
     @Column(name = "standard_rent", nullable = false)
     private Integer standardRent;
 
+    @Column(name = "property_id")
+    private Long propertyId;
+
     public Tenant(String uid, String name, String aadhaarNo, String mobileNumber,
                   String tenantType, String organizationName, String parentContact,
                   String roomNo, Integer advancePaid, Integer standardRent) {
-        this(uid, name, aadhaarNo, mobileNumber, tenantType, organizationName, parentContact, roomNo, advancePaid, AdvancePaidStatus.PENDING, standardRent);
+        this(uid, name, aadhaarNo, mobileNumber, tenantType, organizationName, parentContact, roomNo, advancePaid, AdvancePaidStatus.PENDING, standardRent, null);
+    }
+
+    public Tenant(String uid, String name, String aadhaarNo, String mobileNumber,
+                  String tenantType, String organizationName, String parentContact,
+                  String roomNo, Integer advancePaid, AdvancePaidStatus advancePaidStatus,
+                  Integer standardRent) {
+        this(uid, name, aadhaarNo, mobileNumber, tenantType, organizationName, parentContact, roomNo, advancePaid, advancePaidStatus, standardRent, null);
     }
 
     @PrePersist

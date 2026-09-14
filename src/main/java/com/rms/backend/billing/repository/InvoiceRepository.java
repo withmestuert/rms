@@ -21,6 +21,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
     List<Invoice> findByMonthYearAndStatus(String monthYear, InvoiceStatus status);
 
+    List<Invoice> findByPropertyId(Long propertyId);
+
     boolean existsByTenantUidAndMonthYear(String tenantUid, String monthYear);
 
     boolean existsByInvoiceNumber(String invoiceNumber);

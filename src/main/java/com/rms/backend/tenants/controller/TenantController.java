@@ -22,7 +22,14 @@ public class TenantController {
 
     @PostMapping
     public ResponseEntity<Tenant> createTenant(
-            @Valid @RequestBody TenantRequestDto tenantRequestDTO) {
+            @Valid @RequestBody TenantRequestDto tenantRequestDTO,
+            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestParam(value = "propertyId", required = false) Long queryPropId) {
+
+        Long effectivePropId = queryPropId != null ? queryPropId : (headerPropId != null ? headerPropId : tenantRequestDTO.getPropertyId());
+        if (effectivePropId != null) {
+            tenantRequestDTO.setPropertyId(effectivePropId);
+        }
 
         Tenant createdTenant = tenantService.createTenant(tenantRequestDTO);
 
@@ -32,7 +39,13 @@ public class TenantController {
     }
 
     @GetMapping
-    public List<Tenant> getAllTenants() {
+    public List<Tenant> getAllTenants(
+            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestParam(value = "propertyId", required = false) Long queryPropId) {
+        Long effectivePropId = queryPropId != null ? queryPropId : headerPropId;
+        if (effectivePropId != null) {
+            return tenantService.getTenantsByPropertyId(effectivePropId);
+        }
         return tenantService.getAllTenants();
     }
 

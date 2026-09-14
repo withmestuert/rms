@@ -20,5 +20,7 @@ public interface TenantRepository extends JpaRepository<Tenant, String> {
 
     List<Tenant> findByRoomNo(String roomNo);
 
+    List<Tenant> findByPropertyId(Long propertyId);
+
     long countByRoomNo(String roomNo);
 }

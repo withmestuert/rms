@@ -38,14 +38,22 @@ public class Room {
     @ColumnDefault("0")
     private Integer reservedCapacity;
 
+    @Column(name = "property_id")
+    private Long propertyId;
+
     private Boolean available;
 
     public Room(String roomNo, String floor, String roomType, Integer rentPerMonth, Integer occupancy, Boolean available) {
+        this(roomNo, floor, roomType, rentPerMonth, occupancy, null, available);
+    }
+
+    public Room(String roomNo, String floor, String roomType, Integer rentPerMonth, Integer occupancy, Long propertyId, Boolean available) {
         this.roomNo = roomNo;
         this.floor = floor;
         this.roomType = roomType;
         this.rentPerMonth = rentPerMonth;
         this.occupancy = occupancy;
+        this.propertyId = propertyId;
         this.currentOccupancy = 0;
         this.reservedCapacity = 0;
         this.available = available != null ? available : true;

@@ -22,8 +22,13 @@ public class InvoiceController {
     @GetMapping
     public ResponseEntity<List<InvoiceResponseDto>> getAllInvoices(
             @RequestParam(required = false) String monthYear,
-            @RequestParam(required = false) InvoiceStatus status) {
-        List<InvoiceResponseDto> invoices = billingService.getAllInvoices(monthYear, status);
+            @RequestParam(required = false) InvoiceStatus status,
+            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestParam(value = "propertyId", required = false) Long queryPropId) {
+        Long effectivePropId = queryPropId != null ? queryPropId : headerPropId;
+        List<InvoiceResponseDto> invoices = effectivePropId != null
+                ? billingService.getAllInvoices(monthYear, status, effectivePropId)
+                : billingService.getAllInvoices(monthYear, status);
         return ResponseEntity.ok(invoices);
     }
 
@@ -34,7 +39,14 @@ public class InvoiceController {
     }
 
     @PostMapping
-    public ResponseEntity<InvoiceResponseDto> createInvoice(@Valid @RequestBody InvoiceRequestDto dto) {
+    public ResponseEntity<InvoiceResponseDto> createInvoice(
+            @Valid @RequestBody InvoiceRequestDto dto,
+            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestParam(value = "propertyId", required = false) Long queryPropId) {
+        Long effectivePropId = queryPropId != null ? queryPropId : (headerPropId != null ? headerPropId : dto.getPropertyId());
+        if (effectivePropId != null) {
+            dto.setPropertyId(effectivePropId);
+        }
         InvoiceResponseDto created = billingService.createInvoice(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }

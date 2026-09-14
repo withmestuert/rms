@@ -85,6 +85,13 @@ public class TenantService {
         tenant.setAdvancePaidStatus(AdvancePaidStatus.PENDING);
         tenant.setStandardRent(dto.getStandardRent());
 
+        // Automatically assign property ID from room (or dto if provided)
+        Long propId = dto.getPropertyId();
+        if (propId == null && room != null) {
+            propId = room.getPropertyId();
+        }
+        tenant.setPropertyId(propId);
+
         Tenant savedTenant = tenantRepository.save(tenant);
 
         // 7. Update room availability status if now completely filled
@@ -98,6 +105,13 @@ public class TenantService {
 
     public List<Tenant> getAllTenants() {
         return tenantRepository.findAll();
+    }
+
+    public List<Tenant> getTenantsByPropertyId(Long propertyId) {
+        if (propertyId == null) {
+            return getAllTenants();
+        }
+        return tenantRepository.findByPropertyId(propertyId);
     }
 
     public Tenant getTenantByUid(String uid) {
@@ -168,6 +182,9 @@ public class TenantService {
         existingTenant.setParentContact(dto.getParentContact());
         existingTenant.setAdvancePaid(dto.getAdvancePaid());
         existingTenant.setStandardRent(dto.getStandardRent());
+        if (dto.getPropertyId() != null) {
+            existingTenant.setPropertyId(dto.getPropertyId());
+        }
 
         return tenantRepository.save(existingTenant);
     }

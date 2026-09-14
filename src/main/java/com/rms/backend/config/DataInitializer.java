@@ -29,8 +29,7 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        seedProperties();
-        seedUsers();
+        log.info("RMS Backend initialized with zero mock data. Manual mode enabled.");
     }
 
     private void seedProperties() {

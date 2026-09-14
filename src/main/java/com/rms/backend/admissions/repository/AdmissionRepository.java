@@ -21,6 +21,8 @@ public interface AdmissionRepository extends JpaRepository<Admission, Long> {
 
     List<Admission> findByStatus(AdmissionStatus status);
 
+    List<Admission> findByPropertyId(Long propertyId);
+
     long countByTenant_UidAndStatusIn(String tenantUid, List<AdmissionStatus> statuses);
 
     long countByTenant_UidAndAdmissionNumberNot(String tenantUid, String admissionNumber);

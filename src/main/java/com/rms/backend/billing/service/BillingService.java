@@ -41,8 +41,21 @@ public class BillingService {
 
     @Transactional(readOnly = true)
     public List<InvoiceResponseDto> getAllInvoices(String monthYear, InvoiceStatus status) {
+        return getAllInvoices(monthYear, status, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<InvoiceResponseDto> getAllInvoices(String monthYear, InvoiceStatus status, Long propertyId) {
         List<Invoice> invoices;
-        if (monthYear != null && !monthYear.isBlank() && status != null) {
+        if (propertyId != null) {
+            invoices = invoiceRepository.findByPropertyId(propertyId);
+            if (monthYear != null && !monthYear.isBlank()) {
+                invoices = invoices.stream().filter(i -> monthYear.trim().equalsIgnoreCase(i.getMonthYear())).toList();
+            }
+            if (status != null) {
+                invoices = invoices.stream().filter(i -> status == i.getStatus()).toList();
+            }
+        } else if (monthYear != null && !monthYear.isBlank() && status != null) {
             invoices = invoiceRepository.findByMonthYearAndStatus(monthYear.trim(), status);
         } else if (monthYear != null && !monthYear.isBlank()) {
             invoices = invoiceRepository.findByMonthYear(monthYear.trim());
@@ -73,11 +86,14 @@ public class BillingService {
 
         String invoiceNumber = generateInvoiceNumber(dto.getMonthYear());
 
+        Long propId = dto.getPropertyId() != null ? dto.getPropertyId() : tenant.getPropertyId();
+
         Invoice invoice = Invoice.builder()
                 .invoiceNumber(invoiceNumber)
                 .tenantUid(tenant.getUid())
                 .tenantName(tenant.getName())
                 .roomNo(tenant.getRoomNo())
+                .propertyId(propId)
                 .monthYear(dto.getMonthYear().trim())
                 .amount(dto.getAmount())
                 .dueDate(dto.getDueDate().trim())
@@ -118,6 +134,7 @@ public class BillingService {
                     .tenantUid(tenant.getUid())
                     .tenantName(tenant.getName())
                     .roomNo(tenant.getRoomNo())
+                    .propertyId(tenant.getPropertyId())
                     .monthYear(monthYear)
                     .amount(rentAmount)
                     .dueDate(dueDate)
@@ -177,6 +194,7 @@ public class BillingService {
                 .tenantOrVendor(invoice.getTenantName())
                 .amount(invoice.getAmount())
                 .paymentMode(dto.getPaymentMode())
+                .propertyId(invoice.getPropertyId())
                 .runningBalance(newBalance)
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -193,8 +211,18 @@ public class BillingService {
 
     @Transactional(readOnly = true)
     public List<LedgerTransactionResponseDto> getAllTransactions(TransactionType type) {
+        return getAllTransactions(type, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<LedgerTransactionResponseDto> getAllTransactions(TransactionType type, Long propertyId) {
         List<LedgerTransaction> txns;
-        if (type != null) {
+        if (propertyId != null) {
+            txns = ledgerRepository.findByPropertyIdOrderByCreatedAtDescIdDesc(propertyId);
+            if (type != null) {
+                txns = txns.stream().filter(t -> t.getType() == type).toList();
+            }
+        } else if (type != null) {
             txns = ledgerRepository.findByTypeOrderByCreatedAtDescIdDesc(type);
         } else {
             txns = ledgerRepository.findAllByOrderByCreatedAtDescIdDesc();
@@ -224,6 +252,7 @@ public class BillingService {
                 .tenantOrVendor(dto.getTenantOrVendor().trim())
                 .amount(dto.getAmount())
                 .paymentMode(dto.getPaymentMode().trim())
+                .propertyId(dto.getPropertyId())
                 .runningBalance(newBalance)
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -236,104 +265,10 @@ public class BillingService {
     public long getLatestRunningBalance() {
         return ledgerRepository.findTopByOrderByCreatedAtDescIdDesc()
                 .map(LedgerTransaction::getRunningBalance)
-                .orElse(482150L);
+                .orElse(0L);
     }
 
-    // =========================================================================
-    // SEEDING INITIAL INVOICES & TRANSACTIONS IF EMPTY
-    // =========================================================================
 
-    @PostConstruct
-    @Transactional
-    public void seedInitialBillingData() {
-        if (invoiceRepository.count() == 0) {
-            log.info("Seeding initial invoices and ledger transactions...");
-            List<Tenant> tenants = tenantRepository.findAll();
-
-            String currentMonth = "October 2024";
-            long balance = 482150L;
-
-            if (!tenants.isEmpty()) {
-                Tenant t1 = tenants.get(0);
-                Invoice inv1 = invoiceRepository.save(Invoice.builder()
-                        .invoiceNumber("INV-2024-10-001")
-                        .tenantUid(t1.getUid())
-                        .tenantName(t1.getName())
-                        .roomNo(t1.getRoomNo())
-                        .monthYear(currentMonth)
-                        .amount(t1.getStandardRent() != null ? t1.getStandardRent() : 8500)
-                        .dueDate("2024-10-05")
-                        .status(InvoiceStatus.PAID)
-                        .paidOn("2024-10-03")
-                        .paymentMode("UPI")
-                        .transactionRef("UPI-2024-984128")
-                        .createdAt(LocalDateTime.now().minusDays(5))
-                        .build());
-
-                balance += inv1.getAmount();
-
-                ledgerRepository.save(LedgerTransaction.builder()
-                        .referenceNumber("UPI-2024-984128")
-                        .date("2024-10-03")
-                        .type(TransactionType.CREDIT)
-                        .accountHead("Rent Payment")
-                        .description("Monthly Rent - Room " + inv1.getRoomNo() + " (" + inv1.getTenantName() + ")")
-                        .tenantOrVendor(inv1.getTenantName())
-                        .amount(inv1.getAmount())
-                        .paymentMode("UPI")
-                        .runningBalance(balance)
-                        .createdAt(LocalDateTime.now().minusDays(5))
-                        .build());
-
-                if (tenants.size() > 1) {
-                    Tenant t2 = tenants.get(1);
-                    invoiceRepository.save(Invoice.builder()
-                            .invoiceNumber("INV-2024-10-002")
-                            .tenantUid(t2.getUid())
-                            .tenantName(t2.getName())
-                            .roomNo(t2.getRoomNo())
-                            .monthYear(currentMonth)
-                            .amount(t2.getStandardRent() != null ? t2.getStandardRent() : 8000)
-                            .dueDate("2024-10-05")
-                            .status(InvoiceStatus.PENDING)
-                            .createdAt(LocalDateTime.now().minusDays(4))
-                            .build());
-                }
-
-                if (tenants.size() > 2) {
-                    Tenant t3 = tenants.get(2);
-                    invoiceRepository.save(Invoice.builder()
-                            .invoiceNumber("INV-2024-10-003")
-                            .tenantUid(t3.getUid())
-                            .tenantName(t3.getName())
-                            .roomNo(t3.getRoomNo())
-                            .monthYear(currentMonth)
-                            .amount(t3.getStandardRent() != null ? t3.getStandardRent() : 8200)
-                            .dueDate("2024-10-05")
-                            .status(InvoiceStatus.OVERDUE)
-                            .createdAt(LocalDateTime.now().minusDays(8))
-                            .build());
-                }
-            }
-
-            // Seed a sample utility expense
-            balance -= 4200;
-            ledgerRepository.save(LedgerTransaction.builder()
-                    .referenceNumber("TXN-38291048210")
-                    .date("2024-10-04")
-                    .type(TransactionType.DEBIT)
-                    .accountHead("Utility Payment")
-                    .description("High-Speed Fiber Internet Lease (ACT Fibernet)")
-                    .tenantOrVendor("ACT Broadband Corp")
-                    .amount(4200)
-                    .paymentMode("NEFT")
-                    .runningBalance(balance)
-                    .createdAt(LocalDateTime.now().minusDays(4))
-                    .build());
-
-            log.info("Initial billing and ledger seeding complete. Final balance: ₹{}", balance);
-        }
-    }
 
     // =========================================================================
     // HELPERS & MAPPERS
@@ -354,6 +289,7 @@ public class BillingService {
                 .tenantUid(invoice.getTenantUid())
                 .tenantName(invoice.getTenantName())
                 .roomNo(invoice.getRoomNo())
+                .propertyId(invoice.getPropertyId())
                 .monthYear(invoice.getMonthYear())
                 .amount(invoice.getAmount())
                 .dueDate(invoice.getDueDate())
@@ -376,6 +312,7 @@ public class BillingService {
                 .tenantOrVendor(txn.getTenantOrVendor())
                 .amount(txn.getAmount())
                 .paymentMode(txn.getPaymentMode())
+                .propertyId(txn.getPropertyId())
                 .runningBalance(txn.getRunningBalance())
                 .createdAt(txn.getCreatedAt())
                 .build();

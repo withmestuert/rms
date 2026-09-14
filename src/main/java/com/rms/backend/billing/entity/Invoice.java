@@ -30,6 +30,9 @@ public class Invoice {
     @Column(name = "room_no", nullable = false)
     private String roomNo;
 
+    @Column(name = "property_id")
+    private Long propertyId;
+
     @Column(name = "month_year", nullable = false)
     private String monthYear; // e.g. "October 2024"
 

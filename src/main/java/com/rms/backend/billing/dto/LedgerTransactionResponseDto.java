@@ -22,4 +22,5 @@ public class LedgerTransactionResponseDto {
     private String paymentMode;
     private Long runningBalance;
     private LocalDateTime createdAt;
+    private Long propertyId;
 }

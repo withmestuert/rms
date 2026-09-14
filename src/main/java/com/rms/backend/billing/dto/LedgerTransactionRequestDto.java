@@ -33,4 +33,6 @@ public class LedgerTransactionRequestDto {
     private String paymentMode; // UPI, Cash, NEFT, Card
 
     private String date; // Defaults to today if blank
+
+    private Long propertyId;
 }

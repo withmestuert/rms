@@ -26,17 +26,29 @@ public class AdmissionController {
      */
     @PostMapping
     public ResponseEntity<AdmissionResponseDto> createEnrollment(
-            @Valid @RequestBody AdmissionRequestDto dto) {
+            @Valid @RequestBody AdmissionRequestDto dto,
+            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestParam(value = "propertyId", required = false) Long queryPropId) {
+        Long effectivePropId = queryPropId != null ? queryPropId : (headerPropId != null ? headerPropId : dto.getPropertyId());
+        if (effectivePropId != null) {
+            dto.setPropertyId(effectivePropId);
+        }
         AdmissionResponseDto response = admissionService.createEnrollment(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
      * GET /api/admissions
-     * Retrieve all admissions.
+     * Retrieve all admissions (optionally filtered by property).
      */
     @GetMapping
-    public ResponseEntity<List<AdmissionResponseDto>> getAllAdmissions() {
+    public ResponseEntity<List<AdmissionResponseDto>> getAllAdmissions(
+            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestParam(value = "propertyId", required = false) Long queryPropId) {
+        Long effectivePropId = queryPropId != null ? queryPropId : headerPropId;
+        if (effectivePropId != null) {
+            return ResponseEntity.ok(admissionService.getAdmissionsByPropertyId(effectivePropId));
+        }
         return ResponseEntity.ok(admissionService.getAllAdmissions());
     }
 

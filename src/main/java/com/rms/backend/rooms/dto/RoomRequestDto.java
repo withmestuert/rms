@@ -26,7 +26,17 @@ public class RoomRequestDto {
     @NotNull(message = "Availability is required")
     private Boolean available;
 
+    private Long propertyId;
+
     // getters and setters
+
+    public Long getPropertyId() {
+        return propertyId;
+    }
+
+    public void setPropertyId(Long propertyId) {
+        this.propertyId = propertyId;
+    }
 
     public String getRoomNo() {
         return roomNo;

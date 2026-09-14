@@ -34,6 +34,9 @@ public class Admission {
     @JoinColumn(name = "room_no", referencedColumnName = "roomNo", nullable = false)
     private Room room;
 
+    @Column(name = "property_id")
+    private Long propertyId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private AdmissionStatus status;

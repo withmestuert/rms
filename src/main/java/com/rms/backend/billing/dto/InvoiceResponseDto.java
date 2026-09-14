@@ -24,4 +24,5 @@ public class InvoiceResponseDto {
     private String paymentMode;
     private String transactionRef;
     private LocalDateTime createdAt;
+    private Long propertyId;
 }

@@ -5,6 +5,8 @@ import com.rms.backend.admissions.repository.AdmissionRepository;
 import com.rms.backend.rooms.entity.Room;
 import com.rms.backend.rooms.repository.RoomRepository;
 import com.rms.backend.tenants.repository.TenantRepository;
+import com.rms.backend.properties.entity.Property;
+import com.rms.backend.properties.repository.PropertyRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.rms.backend.rooms.dto.RoomRequestDto;
@@ -19,13 +21,16 @@ public class RoomService {
     private final RoomRepository roomRepository;
     private final TenantRepository tenantRepository;
     private final AdmissionRepository admissionRepository;
+    private final PropertyRepository propertyRepository;
 
     public RoomService(RoomRepository roomRepository,
                        TenantRepository tenantRepository,
-                       AdmissionRepository admissionRepository) {
+                       AdmissionRepository admissionRepository,
+                       PropertyRepository propertyRepository) {
         this.roomRepository = roomRepository;
         this.tenantRepository = tenantRepository;
         this.admissionRepository = admissionRepository;
+        this.propertyRepository = propertyRepository;
     }
 
     public Room createRoom(Room room) {
@@ -34,6 +39,13 @@ public class RoomService {
 
     public List<Room> getAllRooms() {
         return roomRepository.findAll();
+    }
+
+    public List<Room> getRoomsByPropertyId(Long propertyId) {
+        if (propertyId == null) {
+            return getAllRooms();
+        }
+        return roomRepository.findByPropertyId(propertyId);
     }
 
     public Room getRoomByRoomNo(String roomNo) {
@@ -72,11 +84,25 @@ public class RoomService {
 
         Room room = new Room();
 
+        Long propId = roomRequestDTO.getPropertyId();
+        if (propId == null) {
+            List<Property> activeProps = propertyRepository.findByStatus("ACTIVE");
+            if (!activeProps.isEmpty()) {
+                propId = activeProps.get(0).getId();
+            } else {
+                List<Property> allProps = propertyRepository.findAll();
+                if (!allProps.isEmpty()) {
+                    propId = allProps.get(0).getId();
+                }
+            }
+        }
+
         room.setRoomNo(roomRequestDTO.getRoomNo());
         room.setFloor(roomRequestDTO.getFloor());
         room.setRoomType(roomRequestDTO.getRoomType());
         room.setRentPerMonth(roomRequestDTO.getRentPerMonth());
         room.setOccupancy(roomRequestDTO.getOccupancy());
+        room.setPropertyId(propId);
         room.setCurrentOccupancy(0);
         room.setReservedCapacity(0);
         room.setAvailable(roomRequestDTO.getAvailable() != null ? roomRequestDTO.getAvailable() : true);

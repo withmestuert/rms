@@ -23,8 +23,13 @@ public class LedgerController {
 
     @GetMapping
     public ResponseEntity<List<LedgerTransactionResponseDto>> getAllTransactions(
-            @RequestParam(required = false) TransactionType type) {
-        List<LedgerTransactionResponseDto> txns = billingService.getAllTransactions(type);
+            @RequestParam(required = false) TransactionType type,
+            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestParam(value = "propertyId", required = false) Long queryPropId) {
+        Long effectivePropId = queryPropId != null ? queryPropId : headerPropId;
+        List<LedgerTransactionResponseDto> txns = effectivePropId != null
+                ? billingService.getAllTransactions(type, effectivePropId)
+                : billingService.getAllTransactions(type);
         return ResponseEntity.ok(txns);
     }
 
@@ -36,7 +41,13 @@ public class LedgerController {
 
     @PostMapping
     public ResponseEntity<LedgerTransactionResponseDto> recordTransaction(
-            @Valid @RequestBody LedgerTransactionRequestDto dto) {
+            @Valid @RequestBody LedgerTransactionRequestDto dto,
+            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestParam(value = "propertyId", required = false) Long queryPropId) {
+        Long effectivePropId = queryPropId != null ? queryPropId : (headerPropId != null ? headerPropId : dto.getPropertyId());
+        if (effectivePropId != null) {
+            dto.setPropertyId(effectivePropId);
+        }
         LedgerTransactionResponseDto created = billingService.recordCustomTransaction(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }

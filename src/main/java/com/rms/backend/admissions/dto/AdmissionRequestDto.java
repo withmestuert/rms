@@ -43,4 +43,6 @@ public class AdmissionRequestDto {
     private LocalDate enrollmentDate;
 
     private String remarks;
+
+    private Long propertyId;
 }

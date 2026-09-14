@@ -26,4 +26,6 @@ public class InvoiceRequestDto {
     private String dueDate; // YYYY-MM-DD
 
     private String paymentMode;
+
+    private Long propertyId;
 }

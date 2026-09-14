@@ -77,6 +77,13 @@ public class AdmissionService {
         admission.setStatus(AdmissionStatus.PENDING);
         admission.setEnrollmentDate(
                 dto.getEnrollmentDate() != null ? dto.getEnrollmentDate() : LocalDate.now());
+        // Automatically inherit property ID from room
+        Long propId = dto.getPropertyId();
+        if (propId == null && room != null) {
+            propId = room.getPropertyId();
+        }
+        admission.setPropertyId(propId);
+
         admission.setRemarks(dto.getRemarks());
 
         admissionRepository.save(admission);
@@ -188,6 +195,17 @@ public class AdmissionService {
     }
 
     @Transactional(readOnly = true)
+    public List<AdmissionResponseDto> getAdmissionsByPropertyId(Long propertyId) {
+        if (propertyId == null) {
+            return getAllAdmissions();
+        }
+        return admissionRepository.findByPropertyId(propertyId)
+                .stream()
+                .map(this::toResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
     public AdmissionResponseDto getAdmissionByNumber(String admissionNumber) {
         Admission admission = admissionRepository.findByAdmissionNumber(admissionNumber)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -243,6 +261,16 @@ public class AdmissionService {
         tenant.setAdvancePaid(dto.getAdvancePaid() != null ? dto.getAdvancePaid() : 0);
         tenant.setAdvancePaidStatus(AdvancePaidStatus.PENDING);
         tenant.setStandardRent(dto.getStandardRent() != null ? dto.getStandardRent() : 0);
+
+        // Inherit propertyId from room
+        Long propId = dto.getPropertyId();
+        if (propId == null) {
+            Room r = roomRepository.findById(dto.getRoomNo()).orElse(null);
+            if (r != null) {
+                propId = r.getPropertyId();
+            }
+        }
+        tenant.setPropertyId(propId);
 
         return tenantRepository.save(tenant);
     }
@@ -303,6 +331,7 @@ public class AdmissionService {
         dto.setConfirmedOn(admission.getConfirmedOn());
         dto.setCreatedAt(admission.getCreatedAt());
         dto.setUpdatedAt(admission.getUpdatedAt());
+        dto.setPropertyId(admission.getPropertyId());
 
         return dto;
     }

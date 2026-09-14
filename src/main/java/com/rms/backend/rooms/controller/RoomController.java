@@ -24,7 +24,14 @@ public class RoomController {
     //DTO managed post method
     @PostMapping
     public ResponseEntity<Room> createRoom(
-            @Valid @RequestBody RoomRequestDto roomRequestDTO) {
+            @Valid @RequestBody RoomRequestDto roomRequestDTO,
+            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestParam(value = "propertyId", required = false) Long queryPropId) {
+
+        Long effectivePropId = queryPropId != null ? queryPropId : (headerPropId != null ? headerPropId : roomRequestDTO.getPropertyId());
+        if (effectivePropId != null) {
+            roomRequestDTO.setPropertyId(effectivePropId);
+        }
 
         Room createdRoom = roomService.createRoom(roomRequestDTO);
 
@@ -34,7 +41,13 @@ public class RoomController {
     }
 
     @GetMapping
-    public List<Room> getAllRooms() {
+    public List<Room> getAllRooms(
+            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestParam(value = "propertyId", required = false) Long queryPropId) {
+        Long effectivePropId = queryPropId != null ? queryPropId : headerPropId;
+        if (effectivePropId != null) {
+            return roomService.getRoomsByPropertyId(effectivePropId);
+        }
         return roomService.getAllRooms();
     }
 

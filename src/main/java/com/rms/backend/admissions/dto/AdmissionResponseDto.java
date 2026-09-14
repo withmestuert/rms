@@ -31,4 +31,5 @@ public class AdmissionResponseDto {
     private LocalDateTime confirmedOn;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Long propertyId;
 }

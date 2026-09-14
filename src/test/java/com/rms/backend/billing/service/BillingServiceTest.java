@@ -193,7 +193,7 @@ class BillingServiceTest {
 
         when(invoiceRepository.findById(1L)).thenReturn(Optional.of(sampleInvoice));
         when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(ledgerRepository.findTopByOrderByCreatedAtDescIdDesc()).thenReturn(Optional.empty()); // default 482150
+        when(ledgerRepository.findTopByOrderByCreatedAtDescIdDesc()).thenReturn(Optional.of(LedgerTransaction.builder().runningBalance(482150L).build()));
         when(ledgerRepository.save(any(LedgerTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
         InvoiceResponseDto result = billingService.recordPayment(1L, payReq);
@@ -236,7 +236,7 @@ class BillingServiceTest {
                 .date("2024-10-04")
                 .build();
 
-        when(ledgerRepository.findTopByOrderByCreatedAtDescIdDesc()).thenReturn(Optional.empty()); // 482150
+        when(ledgerRepository.findTopByOrderByCreatedAtDescIdDesc()).thenReturn(Optional.of(LedgerTransaction.builder().runningBalance(482150L).build()));
         when(ledgerRepository.save(any(LedgerTransaction.class))).thenAnswer(inv -> {
             LedgerTransaction t = inv.getArgument(0);
             t.setId(101L);

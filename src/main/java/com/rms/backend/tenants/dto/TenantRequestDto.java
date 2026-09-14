@@ -37,7 +37,17 @@ public class TenantRequestDto {
     @Min(value = 0, message = "Standard rent cannot be negative")
     private Integer standardRent;
 
+    private Long propertyId;
+
     // Getters and Setters
+
+    public Long getPropertyId() {
+        return propertyId;
+    }
+
+    public void setPropertyId(Long propertyId) {
+        this.propertyId = propertyId;
+    }
 
     public String getUid() {
         return uid;

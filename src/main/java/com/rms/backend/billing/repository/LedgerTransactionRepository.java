@@ -15,6 +15,8 @@ public interface LedgerTransactionRepository extends JpaRepository<LedgerTransac
 
     List<LedgerTransaction> findByTypeOrderByCreatedAtDescIdDesc(TransactionType type);
 
+    List<LedgerTransaction> findByPropertyIdOrderByCreatedAtDescIdDesc(Long propertyId);
+
     Optional<LedgerTransaction> findTopByOrderByCreatedAtDescIdDesc();
 
     Optional<LedgerTransaction> findByReferenceNumber(String referenceNumber);
