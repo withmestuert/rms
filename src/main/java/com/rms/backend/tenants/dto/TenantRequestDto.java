@@ -6,13 +6,11 @@ import jakarta.validation.constraints.NotNull;
 
 public class TenantRequestDto {
 
-    @NotBlank(message = "UID is required")
     private String uid;
 
     @NotBlank(message = "Name is required")
     private String name;
 
-    @NotBlank(message = "Aadhaar number is required")
     private String aadhaarNo;
 
     @NotBlank(message = "Mobile number is required")
@@ -38,6 +36,7 @@ public class TenantRequestDto {
     private Integer standardRent;
 
     private Long propertyId;
+    private String status;
 
     // Getters and Setters
 
@@ -127,5 +126,13 @@ public class TenantRequestDto {
 
     public void setStandardRent(Integer standardRent) {
         this.standardRent = standardRent;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 }

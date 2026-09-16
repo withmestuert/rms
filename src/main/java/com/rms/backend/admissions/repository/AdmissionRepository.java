@@ -17,6 +17,8 @@ public interface AdmissionRepository extends JpaRepository<Admission, Long> {
 
     List<Admission> findByTenant_Uid(String tenantUid);
 
+    List<Admission> findByTenant_UidOrderByEnrollmentDateDesc(String tenantUid);
+
     List<Admission> findByRoom_RoomNo(String roomNo);
 
     List<Admission> findByStatus(AdmissionStatus status);

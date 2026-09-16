@@ -53,23 +53,37 @@ public class Tenant {
     @Column(name = "property_id")
     private Long propertyId;
 
+    @Column(name = "status")
+    @org.hibernate.annotations.ColumnDefault("'ACTIVE'")
+    private String status = "ACTIVE";
+
     public Tenant(String uid, String name, String aadhaarNo, String mobileNumber,
                   String tenantType, String organizationName, String parentContact,
                   String roomNo, Integer advancePaid, Integer standardRent) {
-        this(uid, name, aadhaarNo, mobileNumber, tenantType, organizationName, parentContact, roomNo, advancePaid, AdvancePaidStatus.PENDING, standardRent, null);
+        this(uid, name, aadhaarNo, mobileNumber, tenantType, organizationName, parentContact, roomNo, advancePaid, AdvancePaidStatus.PENDING, standardRent, null, "ACTIVE");
     }
 
     public Tenant(String uid, String name, String aadhaarNo, String mobileNumber,
                   String tenantType, String organizationName, String parentContact,
                   String roomNo, Integer advancePaid, AdvancePaidStatus advancePaidStatus,
                   Integer standardRent) {
-        this(uid, name, aadhaarNo, mobileNumber, tenantType, organizationName, parentContact, roomNo, advancePaid, advancePaidStatus, standardRent, null);
+        this(uid, name, aadhaarNo, mobileNumber, tenantType, organizationName, parentContact, roomNo, advancePaid, advancePaidStatus, standardRent, null, "ACTIVE");
+    }
+
+    public Tenant(String uid, String name, String aadhaarNo, String mobileNumber,
+                  String tenantType, String organizationName, String parentContact,
+                  String roomNo, Integer advancePaid, AdvancePaidStatus advancePaidStatus,
+                  Integer standardRent, Long propertyId) {
+        this(uid, name, aadhaarNo, mobileNumber, tenantType, organizationName, parentContact, roomNo, advancePaid, advancePaidStatus, standardRent, propertyId, "ACTIVE");
     }
 
     @PrePersist
     protected void onCreate() {
         if (this.advancePaidStatus == null) {
             this.advancePaidStatus = AdvancePaidStatus.PENDING;
+        }
+        if (this.status == null) {
+            this.status = "ACTIVE";
         }
     }
 }

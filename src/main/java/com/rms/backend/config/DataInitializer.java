@@ -20,15 +20,32 @@ public class DataInitializer implements CommandLineRunner {
 
     private final PropertyRepository propertyRepository;
     private final UserRepository userRepository;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     public DataInitializer(PropertyRepository propertyRepository,
-                           UserRepository userRepository) {
+                           UserRepository userRepository,
+                           org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
         this.propertyRepository = propertyRepository;
         this.userRepository = userRepository;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Override
     public void run(String... args) {
+        try {
+            jdbcTemplate.execute("ALTER TABLE admissions DROP CONSTRAINT IF EXISTS admissions_status_check");
+            jdbcTemplate.execute("ALTER TABLE admissions ADD CONSTRAINT admissions_status_check CHECK (status IN ('PENDING', 'PAID', 'CANCELLED', 'VACATED'))");
+            log.info("Successfully updated admissions_status_check constraint to support VACATED status.");
+        } catch (Exception e) {
+            log.warn("Could not update admissions_status_check constraint: {}", e.getMessage());
+        }
+
+        try {
+            jdbcTemplate.execute("UPDATE tenants SET status = 'ACTIVE' WHERE uid IN (SELECT DISTINCT tenant_uid FROM admissions WHERE status IN ('PAID', 'PENDING')) AND (status IS NULL OR status = 'INACTIVE')");
+            log.info("Successfully aligned active tenants status with active admissions.");
+        } catch (Exception e) {
+            log.warn("Could not align tenant statuses: {}", e.getMessage());
+        }
         log.info("RMS Backend initialized with zero mock data. Manual mode enabled.");
     }
 

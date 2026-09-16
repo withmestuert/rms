@@ -9,7 +9,7 @@ public class CorsConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
-                .allowedOrigins("http://localhost:3000","https://rms-frontend-xumo.onrender.com")
+                .allowedOrigins("http://localhost:3000","https://rms-frontend-xumo.onrender.com:8080")
                 .allowedMethods(
                         "GET",
                         "POST",

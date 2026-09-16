@@ -2,6 +2,7 @@ package com.rms.backend.admissions.service;
 
 import com.rms.backend.admissions.dto.AdmissionRequestDto;
 import com.rms.backend.admissions.dto.AdmissionResponseDto;
+import com.rms.backend.admissions.dto.TenantStayCheckDto;
 import com.rms.backend.admissions.entity.Admission;
 import com.rms.backend.admissions.entity.AdmissionStatus;
 import com.rms.backend.admissions.repository.AdmissionRepository;
@@ -358,5 +359,73 @@ class AdmissionServiceTest {
         sampleRoom.setReservedCapacity(1);
         assertFalse(sampleRoom.hasAvailableCapacity());
         assertEquals(0, sampleRoom.getEffectiveAvailableCapacity());
+    }
+
+    @Test
+    @DisplayName("checkExistingTenant returns exists false when tenant not found")
+    void testCheckExistingTenant_NotFound() {
+        when(tenantRepository.findByAadhaarNo("999999999999")).thenReturn(Optional.empty());
+        when(tenantRepository.findByMobileNumber("9999999999")).thenReturn(Optional.empty());
+
+        TenantStayCheckDto result = admissionService.checkExistingTenant("999999999999", "9999999999");
+        assertFalse(result.isExists());
+    }
+
+    @Test
+    @DisplayName("checkExistingTenant returns previous stay dates and inactive status for returning resident")
+    void testCheckExistingTenant_ReturningResident() {
+        sampleTenant.setStatus("INACTIVE");
+        when(tenantRepository.findByAadhaarNo("1234-5678-9012")).thenReturn(Optional.of(sampleTenant));
+
+        Admission pastStay = new Admission();
+        pastStay.setStatus(AdmissionStatus.VACATED);
+        pastStay.setEnrollmentDate(LocalDate.of(2026, 1, 10));
+        pastStay.setVacatedOn(LocalDate.of(2026, 5, 20));
+
+        when(admissionRepository.findByTenant_UidOrderByEnrollmentDateDesc("T-001")).thenReturn(List.of(pastStay));
+
+        TenantStayCheckDto result = admissionService.checkExistingTenant("1234-5678-9012", null);
+
+        assertTrue(result.isExists());
+        assertFalse(result.isHasActiveStay());
+        assertEquals(LocalDate.of(2026, 1, 10), result.getLastStayFrom());
+        assertEquals(LocalDate.of(2026, 5, 20), result.getLastStayTo());
+        assertEquals(1, result.getTotalPreviousStays());
+    }
+
+    @Test
+    @DisplayName("Successfully re-enroll an inactive tenant for a new stay")
+    void testReEnrollInactiveTenant_Success() {
+        sampleTenant.setStatus("INACTIVE");
+        sampleTenant.setRoomNo("102");
+
+        Admission pastStay = new Admission();
+        pastStay.setStatus(AdmissionStatus.PAID);
+
+        when(roomRepository.findByRoomNoWithLock("101")).thenReturn(Optional.of(sampleRoom));
+        when(tenantRepository.findByAadhaarNo("1234-5678-9012")).thenReturn(Optional.of(sampleTenant));
+        when(admissionRepository.findByTenant_Uid("T-001")).thenReturn(List.of(pastStay));
+        when(tenantRepository.save(any(Tenant.class))).thenAnswer(i -> i.getArgument(0));
+        when(admissionRepository.countByTenant_UidAndStatusIn(eq("T-001"), anyList())).thenReturn(0L);
+        when(admissionRepository.save(any(Admission.class))).thenAnswer(i -> {
+            Admission a = i.getArgument(0);
+            a.setId(105L);
+            return a;
+        });
+
+        AdmissionRequestDto reEnrollRequest = new AdmissionRequestDto();
+        reEnrollRequest.setAadhaarNo("1234-5678-9012");
+        reEnrollRequest.setMobileNumber("9876543210");
+        reEnrollRequest.setRoomNo("101");
+        reEnrollRequest.setEnrollmentDate(LocalDate.now());
+
+        AdmissionResponseDto response = admissionService.createEnrollment(reEnrollRequest);
+
+        assertNotNull(response);
+        assertEquals("ACTIVE", sampleTenant.getStatus());
+        assertEquals("101", sampleTenant.getRoomNo());
+        assertEquals(AdmissionStatus.VACATED, pastStay.getStatus());
+        assertEquals(AdmissionStatus.PENDING, response.getStatus());
+        verify(admissionRepository, times(1)).save(pastStay);
     }
 }

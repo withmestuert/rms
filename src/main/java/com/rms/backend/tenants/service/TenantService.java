@@ -14,6 +14,7 @@ import com.rms.backend.tenants.repository.TenantRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 //tested
@@ -36,13 +37,19 @@ public class TenantService {
     @Transactional
     public Tenant createTenant(TenantRequestDto dto) {
         // 1. Duplicate check: UID (Primary Key)
-        if (tenantRepository.existsById(dto.getUid())) {
+        String effectiveUid = (dto.getUid() != null && !dto.getUid().isBlank())
+                ? dto.getUid().trim()
+                : java.util.UUID.randomUUID().toString();
+        if (tenantRepository.existsById(effectiveUid)) {
             throw new DuplicateResourceException(
-                    "Tenant already exists with UID: " + dto.getUid()
+                    "Tenant already exists with UID: " + effectiveUid
             );
         }
 
         // 2. Duplicate check: Aadhaar number (Candidate Key)
+        if (dto.getAadhaarNo() == null || dto.getAadhaarNo().isBlank()) {
+            throw new IllegalArgumentException("Aadhaar number is required");
+        }
         if (tenantRepository.existsByAadhaarNo(dto.getAadhaarNo())) {
             throw new DuplicateResourceException(
                     "Tenant already exists with Aadhaar number: " + dto.getAadhaarNo()
@@ -63,7 +70,7 @@ public class TenantService {
                 ));
 
         // 5. Verify room occupancy capacity
-        long currentCount = tenantRepository.countByRoomNo(dto.getRoomNo());
+        long currentCount = tenantRepository.countActiveByRoomNo(dto.getRoomNo());
         if (currentCount >= room.getOccupancy()) {
             throw new DuplicateResourceException(
                     "Room " + dto.getRoomNo() + " is already at maximum capacity (" +
@@ -73,7 +80,7 @@ public class TenantService {
 
         // 6. Map and persist tenant
         Tenant tenant = new Tenant();
-        tenant.setUid(dto.getUid());
+        tenant.setUid(effectiveUid);
         tenant.setName(dto.getName());
         tenant.setAadhaarNo(dto.getAadhaarNo());
         tenant.setMobileNumber(dto.getMobileNumber());
@@ -104,14 +111,14 @@ public class TenantService {
     }
 
     public List<Tenant> getAllTenants() {
-        return tenantRepository.findAll();
+        return tenantRepository.findAllActive();
     }
 
     public List<Tenant> getTenantsByPropertyId(Long propertyId) {
         if (propertyId == null) {
             return getAllTenants();
         }
-        return tenantRepository.findByPropertyId(propertyId);
+        return tenantRepository.findActiveByPropertyId(propertyId);
     }
 
     public Tenant getTenantByUid(String uid) {
@@ -122,7 +129,7 @@ public class TenantService {
     }
 
     public List<Tenant> getTenantsByRoomNo(String roomNo) {
-        return tenantRepository.findByRoomNo(roomNo);
+        return tenantRepository.findActiveByRoomNo(roomNo);
     }
 
     @Transactional
@@ -133,11 +140,14 @@ public class TenantService {
                 );
 
         // Check if aadhaar changed and already in use by another tenant
-        if (!existingTenant.getAadhaarNo().equals(dto.getAadhaarNo()) &&
-                tenantRepository.existsByAadhaarNo(dto.getAadhaarNo())) {
-            throw new DuplicateResourceException(
-                    "Aadhaar number already in use: " + dto.getAadhaarNo()
-            );
+        if (dto.getAadhaarNo() != null && !dto.getAadhaarNo().isBlank()) {
+            if (!dto.getAadhaarNo().equals(existingTenant.getAadhaarNo()) &&
+                    tenantRepository.existsByAadhaarNo(dto.getAadhaarNo())) {
+                throw new DuplicateResourceException(
+                        "Aadhaar number already in use: " + dto.getAadhaarNo()
+                );
+            }
+            existingTenant.setAadhaarNo(dto.getAadhaarNo());
         }
 
         // Check if mobile changed and already in use by another tenant
@@ -155,7 +165,7 @@ public class TenantService {
             Room targetRoom = roomRepository.findById(newRoomNo)
                     .orElseThrow(() -> new ResourceNotFoundException("Target room not found: " + newRoomNo));
 
-            long targetCount = tenantRepository.countByRoomNo(newRoomNo);
+            long targetCount = tenantRepository.countActiveByRoomNo(newRoomNo);
             if (targetCount >= targetRoom.getOccupancy()) {
                 throw new DuplicateResourceException("Target room " + newRoomNo + " is full");
             }
@@ -175,7 +185,6 @@ public class TenantService {
         }
 
         existingTenant.setName(dto.getName());
-        existingTenant.setAadhaarNo(dto.getAadhaarNo());
         existingTenant.setMobileNumber(dto.getMobileNumber());
         existingTenant.setTenantType(dto.getTenantType());
         existingTenant.setOrganizationName(dto.getOrganizationName());
@@ -184,6 +193,12 @@ public class TenantService {
         existingTenant.setStandardRent(dto.getStandardRent());
         if (dto.getPropertyId() != null) {
             existingTenant.setPropertyId(dto.getPropertyId());
+        }
+
+        if (dto.getStatus() != null && !dto.getStatus().isBlank()) {
+            existingTenant.setStatus(dto.getStatus().trim().toUpperCase());
+        } else if ("INACTIVE".equalsIgnoreCase(existingTenant.getStatus())) {
+            existingTenant.setStatus("ACTIVE");
         }
 
         return tenantRepository.save(existingTenant);
@@ -196,14 +211,28 @@ public class TenantService {
                         new ResourceNotFoundException("Tenant not found with UID: " + uid)
                 );
 
-        String roomNo = existingTenant.getRoomNo();
-        tenantRepository.delete(existingTenant);
+        existingTenant.setStatus("INACTIVE");
+        tenantRepository.save(existingTenant);
 
-        // Since a tenant is deleted, their room now has an available bed slot
-        roomRepository.findById(roomNo).ifPresent(room -> {
-            room.setAvailable(true);
-            roomRepository.save(room);
-        });
+        // Mark any active admissions for this tenant as VACATED
+        List<Admission> activeAdmissions = admissionRepository.findByTenant_Uid(uid).stream()
+                .filter(adm -> adm.getStatus() == AdmissionStatus.PENDING || adm.getStatus() == AdmissionStatus.PAID)
+                .toList();
+        for (Admission adm : activeAdmissions) {
+            adm.setStatus(AdmissionStatus.VACATED);
+            adm.setVacatedOn(LocalDate.now());
+            admissionRepository.save(adm);
+        }
+
+        String roomNo = existingTenant.getRoomNo();
+        if (roomNo != null) {
+            roomRepository.findById(roomNo).ifPresent(room -> {
+                long activeCount = tenantRepository.countActiveByRoomNo(roomNo);
+                room.setCurrentOccupancy((int) activeCount);
+                room.recalculateAvailability();
+                roomRepository.save(room);
+            });
+        }
     }
 
     @Transactional

@@ -2,6 +2,7 @@ package com.rms.backend.admissions.service;
 
 import com.rms.backend.admissions.dto.AdmissionRequestDto;
 import com.rms.backend.admissions.dto.AdmissionResponseDto;
+import com.rms.backend.admissions.dto.TenantStayCheckDto;
 import com.rms.backend.admissions.entity.Admission;
 import com.rms.backend.admissions.entity.AdmissionStatus;
 import com.rms.backend.admissions.repository.AdmissionRepository;
@@ -63,7 +64,7 @@ public class AdmissionService {
                 tenant.getUid(), List.of(AdmissionStatus.PENDING, AdmissionStatus.PAID));
         if (activeCount > 0) {
             throw new DuplicateResourceException(
-                    "Tenant " + tenant.getUid() + " already has an active admission");
+                    "Tenant " + tenant.getName() + " is currently active in Room " + tenant.getRoomNo() + ". A resident cannot have multiple active stays simultaneously.");
         }
 
         // 5. Generate a unique admission number
@@ -213,6 +214,58 @@ public class AdmissionService {
         return toResponseDto(admission);
     }
 
+    @Transactional(readOnly = true)
+    public TenantStayCheckDto checkExistingTenant(String aadhaarNo, String mobileNumber) {
+        Tenant tenant = null;
+        if (aadhaarNo != null && !aadhaarNo.isBlank()) {
+            tenant = tenantRepository.findByAadhaarNo(aadhaarNo.trim()).orElse(null);
+        }
+        if (tenant == null && mobileNumber != null && !mobileNumber.isBlank()) {
+            tenant = tenantRepository.findByMobileNumber(mobileNumber.trim()).orElse(null);
+        }
+
+        if (tenant == null) {
+            TenantStayCheckDto dto = new TenantStayCheckDto();
+            dto.setExists(false);
+            return dto;
+        }
+
+        TenantStayCheckDto dto = new TenantStayCheckDto();
+        dto.setExists(true);
+        dto.setTenantUid(tenant.getUid());
+        dto.setTenantName(tenant.getName());
+        dto.setAadhaarNo(tenant.getAadhaarNo());
+        dto.setMobileNumber(tenant.getMobileNumber());
+        dto.setTenantType(tenant.getTenantType());
+        dto.setOrganizationName(tenant.getOrganizationName());
+        dto.setParentContact(tenant.getParentContact());
+        dto.setStandardRent(tenant.getStandardRent());
+        dto.setAdvancePaid(tenant.getAdvancePaid());
+
+        boolean isCurrentlyActive = "ACTIVE".equalsIgnoreCase(tenant.getStatus()) || tenant.getStatus() == null;
+        List<Admission> allAdmissions = admissionRepository.findByTenant_UidOrderByEnrollmentDateDesc(tenant.getUid());
+        dto.setTotalPreviousStays(allAdmissions.size());
+
+        boolean hasActiveStay = isCurrentlyActive && allAdmissions.stream()
+                .anyMatch(a -> a.getStatus() == AdmissionStatus.PENDING || a.getStatus() == AdmissionStatus.PAID);
+        dto.setHasActiveStay(hasActiveStay);
+        if (hasActiveStay) {
+            dto.setActiveRoomNo(tenant.getRoomNo());
+        }
+
+        if (!allAdmissions.isEmpty()) {
+            Admission lastStay = allAdmissions.get(0);
+            dto.setLastStayFrom(lastStay.getEnrollmentDate());
+            LocalDate toDate = lastStay.getVacatedOn();
+            if (toDate == null) {
+                toDate = lastStay.getUpdatedAt() != null ? lastStay.getUpdatedAt().toLocalDate() : lastStay.getEnrollmentDate();
+            }
+            dto.setLastStayTo(toDate);
+        }
+
+        return dto;
+    }
+
     // -------------------------------------------------------------------------
     // HELPERS
     // -------------------------------------------------------------------------
@@ -223,33 +276,71 @@ public class AdmissionService {
      */
     private Tenant resolveOrCreateTenant(AdmissionRequestDto dto) {
 
+        Tenant tenant = null;
+
         // Try to find by UID first
         if (dto.getTenantUid() != null && !dto.getTenantUid().isBlank()) {
-            return tenantRepository.findById(dto.getTenantUid())
+            tenant = tenantRepository.findById(dto.getTenantUid())
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Tenant not found with UID: " + dto.getTenantUid()));
         }
-
-        // Try Aadhaar
-        if (dto.getAadhaarNo() != null && !dto.getAadhaarNo().isBlank()) {
-            Optional<Tenant> byAadhaar = tenantRepository.findByAadhaarNo(dto.getAadhaarNo());
-            if (byAadhaar.isPresent()) {
-                return byAadhaar.get();
-            }
+        if (tenant == null && dto.getAadhaarNo() != null && !dto.getAadhaarNo().isBlank()) {
+            tenant = tenantRepository.findByAadhaarNo(dto.getAadhaarNo().trim()).orElse(null);
+        }
+        if (tenant == null && dto.getMobileNumber() != null && !dto.getMobileNumber().isBlank()) {
+            tenant = tenantRepository.findByMobileNumber(dto.getMobileNumber().trim()).orElse(null);
         }
 
-        // Try mobile
-        if (dto.getMobileNumber() != null && !dto.getMobileNumber().isBlank()) {
-            Optional<Tenant> byMobile = tenantRepository.findByMobileNumber(dto.getMobileNumber());
-            if (byMobile.isPresent()) {
-                return byMobile.get();
+        if (tenant != null) {
+            // If returning resident (previously inactive/vacated), reactivate for new stay
+            if ("INACTIVE".equalsIgnoreCase(tenant.getStatus())) {
+                // Ensure any prior open admissions are marked VACATED
+                List<Admission> pastActive = admissionRepository.findByTenant_Uid(tenant.getUid()).stream()
+                        .filter(a -> a.getStatus() == AdmissionStatus.PENDING || a.getStatus() == AdmissionStatus.PAID)
+                        .toList();
+                for (Admission a : pastActive) {
+                    a.setStatus(AdmissionStatus.VACATED);
+                    if (a.getVacatedOn() == null) {
+                        a.setVacatedOn(a.getUpdatedAt() != null ? a.getUpdatedAt().toLocalDate() : LocalDate.now());
+                    }
+                    admissionRepository.save(a);
+                }
+
+                // Reactivate tenant and update to new stay details
+                tenant.setStatus("ACTIVE");
+                tenant.setRoomNo(dto.getRoomNo());
+                if (dto.getName() != null && !dto.getName().isBlank()) {
+                    tenant.setName(dto.getName());
+                }
+                if (dto.getTenantType() != null && !dto.getTenantType().isBlank()) {
+                    tenant.setTenantType(dto.getTenantType());
+                }
+                if (dto.getOrganizationName() != null && !dto.getOrganizationName().isBlank()) {
+                    tenant.setOrganizationName(dto.getOrganizationName());
+                }
+                if (dto.getParentContact() != null) {
+                    tenant.setParentContact(dto.getParentContact());
+                }
+                if (dto.getStandardRent() != null) {
+                    tenant.setStandardRent(dto.getStandardRent());
+                }
+                if (dto.getAdvancePaid() != null) {
+                    tenant.setAdvancePaid(dto.getAdvancePaid());
+                }
+                tenant.setAdvancePaidStatus(AdvancePaidStatus.PENDING);
+                Long propId = dto.getPropertyId();
+                if (propId != null) {
+                    tenant.setPropertyId(propId);
+                }
+                return tenantRepository.save(tenant);
             }
+            return tenant;
         }
 
         // New tenant — validate mandatory fields
         validateNewTenantFields(dto);
 
-        Tenant tenant = new Tenant();
+        tenant = new Tenant();
         tenant.setUid(UUID.randomUUID().toString());
         tenant.setName(dto.getName());
         tenant.setAadhaarNo(dto.getAadhaarNo());
@@ -310,6 +401,11 @@ public class AdmissionService {
         AdmissionResponseDto dto = new AdmissionResponseDto();
         dto.setAdmissionNumber(admission.getAdmissionNumber());
 
+        if (admission.getRoom() != null) {
+            dto.setRoomNo(admission.getRoom().getRoomNo());
+            dto.setRoomRent(admission.getRoom().getRentPerMonth());
+        }
+
         if (admission.getTenant() != null) {
             Tenant t = admission.getTenant();
             dto.setTenantUid(t.getUid());
@@ -318,17 +414,17 @@ public class AdmissionService {
             dto.setMobileNumber(t.getMobileNumber());
             dto.setAdvancePaid(t.getAdvancePaid());
             dto.setAdvancePaidStatus(t.getAdvancePaidStatus());
-        }
-
-        if (admission.getRoom() != null) {
-            dto.setRoomNo(admission.getRoom().getRoomNo());
-            dto.setRoomRent(admission.getRoom().getRentPerMonth());
+            dto.setTenantStatus(t.getStatus());
+            if (t.getStandardRent() != null) {
+                dto.setRoomRent(t.getStandardRent());
+            }
         }
 
         dto.setStatus(admission.getStatus());
         dto.setEnrollmentDate(admission.getEnrollmentDate());
         dto.setRemarks(admission.getRemarks());
         dto.setConfirmedOn(admission.getConfirmedOn());
+        dto.setVacatedOn(admission.getVacatedOn());
         dto.setCreatedAt(admission.getCreatedAt());
         dto.setUpdatedAt(admission.getUpdatedAt());
         dto.setPropertyId(admission.getPropertyId());

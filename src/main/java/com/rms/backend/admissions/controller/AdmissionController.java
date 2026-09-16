@@ -2,6 +2,7 @@ package com.rms.backend.admissions.controller;
 
 import com.rms.backend.admissions.dto.AdmissionRequestDto;
 import com.rms.backend.admissions.dto.AdmissionResponseDto;
+import com.rms.backend.admissions.dto.TenantStayCheckDto;
 import com.rms.backend.admissions.service.AdmissionService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -35,6 +36,18 @@ public class AdmissionController {
         }
         AdmissionResponseDto response = admissionService.createEnrollment(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * GET /api/admissions/check-existing
+     * Check if a resident already exists or has previous stays by Aadhaar or Mobile.
+     */
+    @GetMapping("/check-existing")
+    public ResponseEntity<TenantStayCheckDto> checkExistingTenant(
+            @RequestParam(value = "aadhaarNo", required = false) String aadhaarNo,
+            @RequestParam(value = "mobileNumber", required = false) String mobileNumber) {
+        TenantStayCheckDto response = admissionService.checkExistingTenant(aadhaarNo, mobileNumber);
+        return ResponseEntity.ok(response);
     }
 
     /**

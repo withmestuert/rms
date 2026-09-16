@@ -19,6 +19,7 @@ public class AdmissionResponseDto {
     private String admissionNumber;
     private String tenantUid;
     private String tenantName;
+    private String tenantStatus;
     private String aadhaarNo;
     private String mobileNumber;
     private String roomNo;
@@ -29,6 +30,7 @@ public class AdmissionResponseDto {
     private LocalDate enrollmentDate;
     private String remarks;
     private LocalDateTime confirmedOn;
+    private LocalDate vacatedOn;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Long propertyId;

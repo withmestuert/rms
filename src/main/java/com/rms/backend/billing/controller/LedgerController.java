@@ -16,7 +16,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/ledger")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class LedgerController {
 
     private final BillingService billingService;

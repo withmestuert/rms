@@ -50,6 +50,9 @@ public class Admission {
     @Column(name = "confirmed_on")
     private LocalDateTime confirmedOn;
 
+    @Column(name = "vacated_on")
+    private LocalDate vacatedOn;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

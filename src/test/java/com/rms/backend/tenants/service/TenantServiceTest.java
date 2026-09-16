@@ -75,7 +75,7 @@ class TenantServiceTest {
         when(tenantRepository.existsByAadhaarNo("1234-5678-9012")).thenReturn(false);
         when(tenantRepository.existsByMobileNumber("9876543210")).thenReturn(false);
         when(roomRepository.findById("101")).thenReturn(Optional.of(sampleRoom));
-        when(tenantRepository.countByRoomNo("101")).thenReturn(0L);
+        when(tenantRepository.countActiveByRoomNo("101")).thenReturn(0L);
         when(tenantRepository.save(any(Tenant.class))).thenAnswer(i -> i.getArguments()[0]);
 
         Tenant result = tenantService.createTenant(sampleRequest);
@@ -97,7 +97,7 @@ class TenantServiceTest {
         when(tenantRepository.existsByAadhaarNo("1234-5678-9012")).thenReturn(false);
         when(tenantRepository.existsByMobileNumber("9876543210")).thenReturn(false);
         when(roomRepository.findById("101")).thenReturn(Optional.of(sampleRoom));
-        when(tenantRepository.countByRoomNo("101")).thenReturn(0L);
+        when(tenantRepository.countActiveByRoomNo("101")).thenReturn(0L);
         when(tenantRepository.save(any(Tenant.class))).thenAnswer(i -> i.getArguments()[0]);
 
         Tenant created = tenantService.createTenant(sampleRequest);
@@ -113,7 +113,7 @@ class TenantServiceTest {
         when(tenantRepository.existsByAadhaarNo("1234-5678-9012")).thenReturn(false);
         when(tenantRepository.existsByMobileNumber("9876543210")).thenReturn(false);
         when(roomRepository.findById("101")).thenReturn(Optional.of(sampleRoom));
-        when(tenantRepository.countByRoomNo("101")).thenReturn(1L);
+        when(tenantRepository.countActiveByRoomNo("101")).thenReturn(1L);
         when(tenantRepository.save(any(Tenant.class))).thenAnswer(i -> i.getArguments()[0]);
 
         tenantService.createTenant(sampleRequest);
@@ -129,7 +129,7 @@ class TenantServiceTest {
         when(tenantRepository.existsByAadhaarNo("1234-5678-9012")).thenReturn(false);
         when(tenantRepository.existsByMobileNumber("9876543210")).thenReturn(false);
         when(roomRepository.findById("101")).thenReturn(Optional.of(sampleRoom));
-        when(tenantRepository.countByRoomNo("101")).thenReturn(2L);
+        when(tenantRepository.countActiveByRoomNo("101")).thenReturn(2L);
 
         assertThrows(DuplicateResourceException.class, () -> {
             tenantService.createTenant(sampleRequest);
@@ -187,21 +187,32 @@ class TenantServiceTest {
     }
 
     @Test
-    @DisplayName("Deleting tenant frees up room availability")
+    @DisplayName("Deleting tenant performs soft delete and frees up room availability")
     void testDeleteTenantFreesRoom() {
         Tenant tenant = new Tenant();
         tenant.setUid("T-101");
         tenant.setRoomNo("101");
+        tenant.setStatus("ACTIVE");
 
         sampleRoom.setAvailable(false);
+        Admission activeAdmission = new Admission();
+        activeAdmission.setStatus(AdmissionStatus.PAID);
 
         when(tenantRepository.findById("T-101")).thenReturn(Optional.of(tenant));
+        when(admissionRepository.findByTenant_Uid("T-101")).thenReturn(List.of(activeAdmission));
         when(roomRepository.findById("101")).thenReturn(Optional.of(sampleRoom));
+        when(tenantRepository.countActiveByRoomNo("101")).thenReturn(1L);
 
         tenantService.deleteTenant("T-101");
 
-        verify(tenantRepository, times(1)).delete(tenant);
+        assertEquals("INACTIVE", tenant.getStatus());
+        assertEquals(AdmissionStatus.VACATED, activeAdmission.getStatus());
+        assertNotNull(activeAdmission.getVacatedOn());
+        verify(admissionRepository, times(1)).save(activeAdmission);
+        verify(tenantRepository, times(1)).save(tenant);
+        verify(tenantRepository, never()).delete(any());
         assertTrue(sampleRoom.getAvailable());
+        assertEquals(1, sampleRoom.getCurrentOccupancy());
         verify(roomRepository, times(1)).save(sampleRoom);
     }
 

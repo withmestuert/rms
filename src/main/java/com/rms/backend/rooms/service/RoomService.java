@@ -1,6 +1,7 @@
 package com.rms.backend.rooms.service;
 
 import com.rms.backend.admissions.entity.Admission;
+import com.rms.backend.admissions.entity.AdmissionStatus;
 import com.rms.backend.admissions.repository.AdmissionRepository;
 import com.rms.backend.rooms.entity.Room;
 import com.rms.backend.rooms.repository.RoomRepository;
@@ -37,22 +38,58 @@ public class RoomService {
         return roomRepository.save(room);
     }
 
+    @Transactional
+    public Room syncRoomOccupancy(Room room) {
+        if (room == null) return null;
+        long activeCount = tenantRepository.countActiveByRoomNo(room.getRoomNo());
+        long pendingReservations = admissionRepository.findByRoom_RoomNo(room.getRoomNo()).stream()
+                .filter(a -> a.getStatus() == AdmissionStatus.PENDING)
+                .count();
+
+        boolean changed = false;
+        if (room.getCurrentOccupancy() == null || room.getCurrentOccupancy() != (int) activeCount) {
+            room.setCurrentOccupancy((int) activeCount);
+            changed = true;
+        }
+        if (room.getReservedCapacity() == null || room.getReservedCapacity() != (int) pendingReservations) {
+            room.setReservedCapacity((int) pendingReservations);
+            changed = true;
+        }
+
+        int capacity = room.getOccupancy() != null ? room.getOccupancy() : 0;
+        boolean shouldBeAvailable = (room.getCurrentOccupancy() + room.getReservedCapacity()) < capacity;
+        if (room.getAvailable() == null || room.getAvailable() != shouldBeAvailable) {
+            room.setAvailable(shouldBeAvailable);
+            changed = true;
+        }
+
+        if (changed) {
+            return roomRepository.save(room);
+        }
+        return room;
+    }
+
     public List<Room> getAllRooms() {
-        return roomRepository.findAll();
+        return roomRepository.findAll().stream()
+                .map(this::syncRoomOccupancy)
+                .toList();
     }
 
     public List<Room> getRoomsByPropertyId(Long propertyId) {
-        if (propertyId == null) {
-            return getAllRooms();
-        }
-        return roomRepository.findByPropertyId(propertyId);
+        List<Room> rooms = propertyId == null
+                ? roomRepository.findAll()
+                : roomRepository.findByPropertyId(propertyId);
+        return rooms.stream()
+                .map(this::syncRoomOccupancy)
+                .toList();
     }
 
     public Room getRoomByRoomNo(String roomNo) {
-        return roomRepository.findById(roomNo)
+        Room room = roomRepository.findById(roomNo)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Room not found with room number: " + roomNo)
                 );
+        return syncRoomOccupancy(room);
     }
 
 

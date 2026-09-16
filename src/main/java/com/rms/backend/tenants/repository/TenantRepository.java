@@ -23,4 +23,16 @@ public interface TenantRepository extends JpaRepository<Tenant, String> {
     List<Tenant> findByPropertyId(Long propertyId);
 
     long countByRoomNo(String roomNo);
+
+    @org.springframework.data.jpa.repository.Query("SELECT t FROM Tenant t WHERE (t.status IS NULL OR UPPER(t.status) = 'ACTIVE')")
+    List<Tenant> findAllActive();
+
+    @org.springframework.data.jpa.repository.Query("SELECT t FROM Tenant t WHERE t.propertyId = :propertyId AND (t.status IS NULL OR UPPER(t.status) = 'ACTIVE')")
+    List<Tenant> findActiveByPropertyId(@org.springframework.data.repository.query.Param("propertyId") Long propertyId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT t FROM Tenant t WHERE t.roomNo = :roomNo AND (t.status IS NULL OR UPPER(t.status) = 'ACTIVE')")
+    List<Tenant> findActiveByRoomNo(@org.springframework.data.repository.query.Param("roomNo") String roomNo);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(t) FROM Tenant t WHERE t.roomNo = :roomNo AND (t.status IS NULL OR UPPER(t.status) = 'ACTIVE')")
+    long countActiveByRoomNo(@org.springframework.data.repository.query.Param("roomNo") String roomNo);
 }
