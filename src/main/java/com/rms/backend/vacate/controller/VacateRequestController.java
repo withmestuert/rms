@@ -1,5 +1,6 @@
 package com.rms.backend.vacate.controller;
 
+import com.rms.backend.common.ApiPaths;
 import com.rms.backend.vacate.dto.VacateChargeUpdateDto;
 import com.rms.backend.vacate.dto.VacateRequestDto;
 import com.rms.backend.vacate.dto.VacateResponseDto;
@@ -14,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/vacate-requests")
+@RequestMapping(ApiPaths.API_VACATE_REQUESTS)
 @RequiredArgsConstructor
 public class VacateRequestController {
 
@@ -33,17 +34,17 @@ public class VacateRequestController {
         return ResponseEntity.ok(vacateRequestService.getAllVacateRequests(status, propertyId));
     }
 
-    @GetMapping("/{id}")
+    @GetMapping(ApiPaths.ID)
     public ResponseEntity<VacateResponseDto> getVacateRequestById(@PathVariable Long id) {
         return ResponseEntity.ok(vacateRequestService.getVacateRequestById(id));
     }
 
-    @PutMapping("/{id}/approve")
+    @PutMapping(ApiPaths.ID_APPROVE)
     public ResponseEntity<VacateResponseDto> approveVacateRequest(@PathVariable Long id) {
         return ResponseEntity.ok(vacateRequestService.approveVacateRequest(id));
     }
 
-    @PutMapping("/{id}/reject")
+    @PutMapping(ApiPaths.ID_REJECT)
     public ResponseEntity<VacateResponseDto> rejectVacateRequest(
             @PathVariable Long id,
             @RequestBody(required = false) Map<String, String> body) {
@@ -51,14 +52,14 @@ public class VacateRequestController {
         return ResponseEntity.ok(vacateRequestService.rejectVacateRequest(id, reason));
     }
 
-    @PutMapping("/{id}/charges")
+    @PutMapping(ApiPaths.ID_CHARGES)
     public ResponseEntity<VacateResponseDto> updateCharges(
             @PathVariable Long id,
             @RequestBody VacateChargeUpdateDto dto) {
         return ResponseEntity.ok(vacateRequestService.updateCharges(id, dto));
     }
 
-    @PutMapping("/{id}/complete")
+    @PutMapping(ApiPaths.ID_COMPLETE)
     public ResponseEntity<VacateResponseDto> completeVacate(@PathVariable Long id) {
         return ResponseEntity.ok(vacateRequestService.completeVacate(id));
     }

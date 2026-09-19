@@ -1,5 +1,7 @@
 package com.rms.backend.rooms.service;
 
+import com.rms.backend.common.SecurityConstants;
+import com.rms.backend.security.Access;
 import com.rms.backend.admissions.entity.Admission;
 import com.rms.backend.admissions.entity.AdmissionStatus;
 import com.rms.backend.admissions.repository.AdmissionRepository;
@@ -35,12 +37,15 @@ public class RoomService {
     }
 
     public Room createRoom(Room room) {
+        Access.write(room.getPropertyId());
         return roomRepository.save(room);
     }
 
     @Transactional
     public Room syncRoomOccupancy(Room room) {
         if (room == null) return null;
+        Access.read(room.getPropertyId());
+        if (SecurityConstants.SUB_MEMBER.equals(Access.current().role())) return room;
         long activeCount = tenantRepository.countActiveByRoomNo(room.getRoomNo());
         long pendingReservations = admissionRepository.findByRoom_RoomNo(room.getRoomNo()).stream()
                 .filter(a -> a.getStatus() == AdmissionStatus.PENDING)
@@ -71,15 +76,18 @@ public class RoomService {
 
     public List<Room> getAllRooms() {
         return roomRepository.findAll().stream()
+                .filter(room -> Access.canAccess(room.getPropertyId()))
                 .map(this::syncRoomOccupancy)
                 .toList();
     }
 
     public List<Room> getRoomsByPropertyId(Long propertyId) {
+        if (propertyId != null) Access.read(propertyId);
         List<Room> rooms = propertyId == null
                 ? roomRepository.findAll()
                 : roomRepository.findByPropertyId(propertyId);
         return rooms.stream()
+                .filter(room -> Access.canAccess(room.getPropertyId()))
                 .map(this::syncRoomOccupancy)
                 .toList();
     }
@@ -100,6 +108,8 @@ public class RoomService {
                         new ResourceNotFoundException("Room not found with room number: " + roomNo)
                 );
 
+        Access.write(existingRoom.getPropertyId());
+        Access.matchingProperty(roomRequestDTO.getPropertyId(), existingRoom.getPropertyId());
         existingRoom.setFloor(roomRequestDTO.getFloor());
         existingRoom.setRoomType(roomRequestDTO.getRoomType());
         existingRoom.setRentPerMonth(roomRequestDTO.getRentPerMonth());
@@ -122,17 +132,8 @@ public class RoomService {
         Room room = new Room();
 
         Long propId = roomRequestDTO.getPropertyId();
-        if (propId == null) {
-            List<Property> activeProps = propertyRepository.findByStatus("ACTIVE");
-            if (!activeProps.isEmpty()) {
-                propId = activeProps.get(0).getId();
-            } else {
-                List<Property> allProps = propertyRepository.findAll();
-                if (!allProps.isEmpty()) {
-                    propId = allProps.get(0).getId();
-                }
-            }
-        }
+        if (propId == null) throw new IllegalArgumentException("Property ID is required");
+        Access.write(propId);
 
         room.setRoomNo(roomRequestDTO.getRoomNo());
         room.setFloor(roomRequestDTO.getFloor());
@@ -157,6 +158,8 @@ public class RoomService {
                                 "Room not found with room number: " + roomNo
                         )
                 );
+
+        Access.write(existingRoom.getPropertyId());
 
         if (existingRoom.getCurrentOccupancy() != null && existingRoom.getCurrentOccupancy() > 0) {
             throw new DuplicateResourceException(

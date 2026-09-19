@@ -1,5 +1,6 @@
 package com.rms.backend.billing.service;
 
+import com.rms.backend.security.Access;
 import com.rms.backend.billing.dto.*;
 import com.rms.backend.billing.entity.Invoice;
 import com.rms.backend.billing.entity.InvoiceStatus;
@@ -46,6 +47,7 @@ public class BillingService {
 
     @Transactional(readOnly = true)
     public List<InvoiceResponseDto> getAllInvoices(String monthYear, InvoiceStatus status, Long propertyId) {
+        if (propertyId != null) Access.read(propertyId);
         List<Invoice> invoices;
         if (propertyId != null) {
             invoices = invoiceRepository.findByPropertyId(propertyId);
@@ -64,13 +66,14 @@ public class BillingService {
         } else {
             invoices = invoiceRepository.findAll();
         }
-        return invoices.stream().map(this::toInvoiceResponseDto).collect(Collectors.toList());
+        return invoices.stream().filter(i -> Access.canAccess(i.getPropertyId())).map(this::toInvoiceResponseDto).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public InvoiceResponseDto getInvoiceById(Long id) {
         Invoice invoice = invoiceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice not found with ID: " + id));
+        Access.read(invoice.getPropertyId());
         return toInvoiceResponseDto(invoice);
     }
 
@@ -79,6 +82,8 @@ public class BillingService {
         Tenant tenant = tenantRepository.findById(dto.getTenantUid())
                 .orElseThrow(() -> new ResourceNotFoundException("Tenant not found with UID: " + dto.getTenantUid()));
 
+        Access.write(tenant.getPropertyId());
+        Access.matchingProperty(dto.getPropertyId(), tenant.getPropertyId());
         if (invoiceRepository.existsByTenantUidAndMonthYear(tenant.getUid(), dto.getMonthYear().trim())) {
             throw new DuplicateResourceException(
                     "Invoice already exists for tenant " + tenant.getName() + " for " + dto.getMonthYear());
@@ -109,7 +114,8 @@ public class BillingService {
 
     @Transactional
     public CycleGenerationResultDto generateCycleInvoices(CycleGenerationRequestDto dto) {
-        List<Tenant> tenants = tenantRepository.findAll();
+        Access.writer();
+        List<Tenant> tenants = tenantRepository.findAll().stream().filter(t -> Access.canAccess(t.getPropertyId())).toList();
         List<InvoiceResponseDto> generated = new ArrayList<>();
         int skippedCount = 0;
         long totalAmount = 0;
@@ -162,6 +168,7 @@ public class BillingService {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice not found with ID: " + invoiceId));
 
+        Access.write(invoice.getPropertyId());
         if (invoice.getStatus() == InvoiceStatus.PAID) {
             throw new DuplicateResourceException("Invoice " + invoice.getInvoiceNumber() + " is already marked as PAID");
         }
@@ -182,7 +189,7 @@ public class BillingService {
         Invoice updatedInvoice = invoiceRepository.save(invoice);
 
         // Record in ledger
-        long currentBalance = getLatestRunningBalance();
+        long currentBalance = propertyBalance(invoice.getPropertyId());
         long newBalance = currentBalance + invoice.getAmount();
 
         LedgerTransaction ledgerTxn = LedgerTransaction.builder()
@@ -216,6 +223,7 @@ public class BillingService {
 
     @Transactional(readOnly = true)
     public List<LedgerTransactionResponseDto> getAllTransactions(TransactionType type, Long propertyId) {
+        if (propertyId != null) Access.read(propertyId);
         List<LedgerTransaction> txns;
         if (propertyId != null) {
             txns = ledgerRepository.findByPropertyIdOrderByCreatedAtDescIdDesc(propertyId);
@@ -227,12 +235,30 @@ public class BillingService {
         } else {
             txns = ledgerRepository.findAllByOrderByCreatedAtDescIdDesc();
         }
-        return txns.stream().map(this::toLedgerResponseDto).collect(Collectors.toList());
+        // Rebuild historical balances from each property's own transactions: legacy
+        // runningBalance columns may contain totals across unrelated owners.
+        java.util.Map<Long, Long> balances = new java.util.HashMap<>();
+        for (Long accessibleId : Access.current().propertyIds()) {
+            var history = new java.util.ArrayList<>(ledgerRepository.findByPropertyIdOrderByCreatedAtDescIdDesc(accessibleId));
+            java.util.Collections.reverse(history);
+            long balance = 0;
+            for (var transaction : history) {
+                balance += transaction.getType() == TransactionType.CREDIT ? transaction.getAmount() : -transaction.getAmount();
+                balances.put(transaction.getId(), balance);
+            }
+        }
+        return txns.stream().filter(t -> Access.canAccess(t.getPropertyId())).map(t -> {
+            var response = toLedgerResponseDto(t);
+            response.setRunningBalance(balances.getOrDefault(t.getId(), 0L));
+            return response;
+        }).collect(Collectors.toList());
     }
 
     @Transactional
     public LedgerTransactionResponseDto recordCustomTransaction(LedgerTransactionRequestDto dto) {
-        long currentBalance = getLatestRunningBalance();
+        if (dto.getPropertyId() == null) throw new IllegalArgumentException("Property ID is required");
+        Access.write(dto.getPropertyId());
+        long currentBalance = propertyBalance(dto.getPropertyId());
         long newBalance = dto.getType() == TransactionType.CREDIT
                 ? currentBalance + dto.getAmount()
                 : Math.max(0, currentBalance - dto.getAmount());
@@ -263,12 +289,16 @@ public class BillingService {
     }
 
     public long getLatestRunningBalance() {
-        return ledgerRepository.findTopByOrderByCreatedAtDescIdDesc()
-                .map(LedgerTransaction::getRunningBalance)
-                .orElse(0L);
+        return Access.current().propertyIds().stream().mapToLong(this::propertyBalance).sum();
     }
 
 
+
+    private long propertyBalance(Long propertyId) {
+        Access.read(propertyId);
+        return ledgerRepository.findByPropertyIdOrderByCreatedAtDescIdDesc(propertyId).stream()
+                .mapToLong(t -> t.getType() == TransactionType.CREDIT ? t.getAmount() : -t.getAmount()).sum();
+    }
 
     // =========================================================================
     // HELPERS & MAPPERS

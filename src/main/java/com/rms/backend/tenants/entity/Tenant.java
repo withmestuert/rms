@@ -1,5 +1,6 @@
 package com.rms.backend.tenants.entity;
 
+import com.rms.backend.common.SecurityConstants;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -55,26 +56,26 @@ public class Tenant {
 
     @Column(name = "status")
     @org.hibernate.annotations.ColumnDefault("'ACTIVE'")
-    private String status = "ACTIVE";
+    private String status = SecurityConstants.ACTIVE;
 
     public Tenant(String uid, String name, String aadhaarNo, String mobileNumber,
                   String tenantType, String organizationName, String parentContact,
                   String roomNo, Integer advancePaid, Integer standardRent) {
-        this(uid, name, aadhaarNo, mobileNumber, tenantType, organizationName, parentContact, roomNo, advancePaid, AdvancePaidStatus.PENDING, standardRent, null, "ACTIVE");
+        this(uid, name, aadhaarNo, mobileNumber, tenantType, organizationName, parentContact, roomNo, advancePaid, AdvancePaidStatus.PENDING, standardRent, null, SecurityConstants.ACTIVE);
     }
 
     public Tenant(String uid, String name, String aadhaarNo, String mobileNumber,
                   String tenantType, String organizationName, String parentContact,
                   String roomNo, Integer advancePaid, AdvancePaidStatus advancePaidStatus,
                   Integer standardRent) {
-        this(uid, name, aadhaarNo, mobileNumber, tenantType, organizationName, parentContact, roomNo, advancePaid, advancePaidStatus, standardRent, null, "ACTIVE");
+        this(uid, name, aadhaarNo, mobileNumber, tenantType, organizationName, parentContact, roomNo, advancePaid, advancePaidStatus, standardRent, null, SecurityConstants.ACTIVE);
     }
 
     public Tenant(String uid, String name, String aadhaarNo, String mobileNumber,
                   String tenantType, String organizationName, String parentContact,
                   String roomNo, Integer advancePaid, AdvancePaidStatus advancePaidStatus,
                   Integer standardRent, Long propertyId) {
-        this(uid, name, aadhaarNo, mobileNumber, tenantType, organizationName, parentContact, roomNo, advancePaid, advancePaidStatus, standardRent, propertyId, "ACTIVE");
+        this(uid, name, aadhaarNo, mobileNumber, tenantType, organizationName, parentContact, roomNo, advancePaid, advancePaidStatus, standardRent, propertyId, SecurityConstants.ACTIVE);
     }
 
     @PrePersist
@@ -83,7 +84,7 @@ public class Tenant {
             this.advancePaidStatus = AdvancePaidStatus.PENDING;
         }
         if (this.status == null) {
-            this.status = "ACTIVE";
+            this.status = SecurityConstants.ACTIVE;
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.rms.backend.properties.service;
 
+import com.rms.backend.security.Access;
 import com.rms.backend.exception.DuplicateResourceException;
 import com.rms.backend.exception.ResourceNotFoundException;
 import com.rms.backend.properties.dto.PropertyRequestDto;
@@ -22,12 +23,13 @@ public class PropertyService {
     }
 
     public List<PropertyResponseDto> getAllProperties() {
-        return propertyRepository.findAll().stream()
+        return (Access.bypassed() ? propertyRepository.findAll() : propertyRepository.findByOwnerId(Access.current().ownerId())).stream().filter(p -> Access.canAccess(p.getId()))
                 .map(this::toResponseDto)
                 .collect(Collectors.toList());
     }
 
     public PropertyResponseDto getPropertyById(Long id) {
+        Access.read(id);
         Property property = propertyRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Property not found with ID: " + id));
         return toResponseDto(property);
@@ -35,6 +37,7 @@ public class PropertyService {
 
     @Transactional
     public PropertyResponseDto createProperty(PropertyRequestDto dto) {
+        Long ownerId = Access.owner();
         if (propertyRepository.existsByName(dto.getName())) {
             throw new DuplicateResourceException("Property already exists with name: " + dto.getName());
         }
@@ -44,6 +47,7 @@ public class PropertyService {
         }
 
         Property property = new Property();
+        property.setOwnerId(ownerId);
         mapDtoToEntity(dto, property);
 
         Property saved = propertyRepository.save(property);
@@ -52,6 +56,7 @@ public class PropertyService {
 
     @Transactional
     public PropertyResponseDto updateProperty(Long id, PropertyRequestDto dto) {
+        Access.owner(); Access.read(id);
         Property existing = propertyRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Property not found with ID: " + id));
 
@@ -72,6 +77,7 @@ public class PropertyService {
 
     @Transactional
     public void deleteProperty(Long id) {
+        Access.owner(); Access.read(id);
         Property existing = propertyRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Property not found with ID: " + id));
         propertyRepository.delete(existing);

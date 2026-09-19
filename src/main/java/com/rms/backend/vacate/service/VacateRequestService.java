@@ -1,5 +1,7 @@
 package com.rms.backend.vacate.service;
 
+import com.rms.backend.common.SecurityConstants;
+import com.rms.backend.security.Access;
 import com.rms.backend.exception.ResourceNotFoundException;
 import com.rms.backend.rooms.entity.Room;
 import com.rms.backend.rooms.repository.RoomRepository;
@@ -34,7 +36,7 @@ public class VacateRequestService {
 
     @Transactional
     public VacateResponseDto submitVacateRequest(VacateRequestDto dto) {
-        log.info("Processing vacate request submission: {}", dto);
+        log.debug("Processing vacate request submission");
 
         // 1. Resolve tenant
         Tenant tenant = null;
@@ -47,6 +49,12 @@ public class VacateRequestService {
         if (tenant == null && dto.getMobileNumber() != null && !dto.getMobileNumber().isBlank()) {
             tenant = tenantRepository.findByMobileNumber(dto.getMobileNumber().trim()).orElse(null);
         }
+
+        if (tenant == null) throw new ResourceNotFoundException("Tenant not found");
+        Access.write(tenant.getPropertyId());
+        Access.matchingProperty(dto.getPropertyId(), tenant.getPropertyId());
+        if (dto.getRoomNo() != null && !dto.getRoomNo().equals(tenant.getRoomNo()))
+            throw new IllegalArgumentException("Room must match tenant room");
 
         // 2. Resolve identifiers and advance amount
         String tenantUid = (tenant != null) ? tenant.getUid() : dto.getTenantUid();
@@ -138,6 +146,7 @@ public class VacateRequestService {
 
     @Transactional(readOnly = true)
     public List<VacateResponseDto> getAllVacateRequests(VacateStatus status, Long propertyId) {
+        if (propertyId != null) Access.read(propertyId);
         List<VacateRequest> list;
         if (status != null) {
             list = vacateRepository.findByStatusOrderByCreatedAtDesc(status);
@@ -151,13 +160,14 @@ public class VacateRequestService {
                     .collect(Collectors.toList());
         }
 
-        return list.stream().map(this::toResponseDto).collect(Collectors.toList());
+        return list.stream().filter(v -> Access.canAccess(v.getPropertyId())).map(this::toResponseDto).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public VacateResponseDto getVacateRequestById(Long id) {
         VacateRequest v = vacateRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vacate request not found with ID: " + id));
+        Access.read(v.getPropertyId());
         return toResponseDto(v);
     }
 
@@ -165,6 +175,7 @@ public class VacateRequestService {
     public VacateResponseDto approveVacateRequest(Long id) {
         VacateRequest v = vacateRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vacate request not found with ID: " + id));
+        Access.write(v.getPropertyId());
 
         v.setStatus(VacateStatus.APPROVED);
         v.setUpdatedAt(LocalDateTime.now());
@@ -172,6 +183,7 @@ public class VacateRequestService {
         // Update room status to vacate_notice and attach vacateDate & vacatingResident
         if (v.getRoomNo() != null && !v.getRoomNo().isBlank()) {
             roomRepository.findById(v.getRoomNo()).ifPresent(room -> {
+                Access.write(room.getPropertyId());
                 room.setVacateStatus("vacate_notice");
                 room.setVacateDate(v.getExpectedLeavingDate().toString());
                 room.setVacatingResident(v.getTenantName());
@@ -188,6 +200,7 @@ public class VacateRequestService {
     public VacateResponseDto rejectVacateRequest(Long id, String reason) {
         VacateRequest v = vacateRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vacate request not found with ID: " + id));
+        Access.write(v.getPropertyId());
 
         v.setStatus(VacateStatus.REJECTED);
         v.setNotes((v.getNotes() != null ? v.getNotes() + " | " : "") + "Rejected: " + (reason != null ? reason : ""));
@@ -201,6 +214,7 @@ public class VacateRequestService {
     public VacateResponseDto updateCharges(Long id, VacateChargeUpdateDto dto) {
         VacateRequest v = vacateRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vacate request not found with ID: " + id));
+        Access.write(v.getPropertyId());
 
         if (dto.getMaintenanceCharge() != null) {
             v.setMaintenanceCharge(dto.getMaintenanceCharge());
@@ -230,6 +244,7 @@ public class VacateRequestService {
     public VacateResponseDto completeVacate(Long id) {
         VacateRequest v = vacateRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vacate request not found with ID: " + id));
+        Access.write(v.getPropertyId());
 
         v.setStatus(VacateStatus.COMPLETED);
         v.setUpdatedAt(LocalDateTime.now());
@@ -237,7 +252,8 @@ public class VacateRequestService {
         // 1. Mark tenant INACTIVE
         if (v.getTenantUid() != null) {
             tenantRepository.findById(v.getTenantUid()).ifPresent(t -> {
-                t.setStatus("INACTIVE");
+                Access.write(t.getPropertyId());
+                t.setStatus(SecurityConstants.INACTIVE);
                 tenantRepository.save(t);
                 log.info("Tenant {} marked INACTIVE upon vacate completion", t.getUid());
             });
@@ -246,6 +262,7 @@ public class VacateRequestService {
         // 2. Clear room vacate status and adjust occupancy
         if (v.getRoomNo() != null) {
             roomRepository.findById(v.getRoomNo()).ifPresent(room -> {
+                Access.write(room.getPropertyId());
                 room.setVacateStatus(null);
                 room.setVacateDate(null);
                 room.setVacatingResident(null);

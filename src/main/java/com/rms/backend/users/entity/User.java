@@ -1,5 +1,6 @@
 package com.rms.backend.users.entity;
 
+import com.rms.backend.common.SecurityConstants;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -20,6 +21,27 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String passwordHash;
+
+    private Long ownerId;
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Column(nullable = false)
+    private int failedLoginAttempts;
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Column(nullable = false)
+    private long authenticationVersion;
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private java.time.Instant lockedUntil;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_properties", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "property_id")
+    private java.util.Set<Long> propertyIds = new java.util.HashSet<>();
+
     @Column(name = "username", nullable = false, unique = true)
     private String username;
 
@@ -30,7 +52,7 @@ public class User {
     private String fullName;
 
     @Column(name = "role", nullable = false)
-    private String role; // ADMIN, PROPERTY_MANAGER, STAFF, OWNER
+    private String role; // OWNER, REPRESENTATIVE, SUB_MEMBER
 
     @Column(name = "phone")
     private String phone;
@@ -50,10 +72,10 @@ public class User {
         this.createdAt = now;
         this.updatedAt = now;
         if (this.status == null) {
-            this.status = "ACTIVE";
+            this.status = SecurityConstants.ACTIVE;
         }
         if (this.role == null) {
-            this.role = "PROPERTY_MANAGER";
+            this.role = SecurityConstants.SUB_MEMBER;
         }
     }
 

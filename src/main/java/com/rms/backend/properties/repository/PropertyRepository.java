@@ -9,6 +9,7 @@ import java.util.Optional;
 
 @Repository
 public interface PropertyRepository extends JpaRepository<Property, Long> {
+    java.util.List<Property> findByOwnerId(Long ownerId);
 
     boolean existsByName(String name);
 

@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, com.rms.backend.security.OwnerTestContext.class})
 class BillingServiceTest {
 
     @Mock
@@ -53,8 +53,9 @@ class BillingServiceTest {
                 "TNT-101", "Arjun Sharma", "123456789012", "9876543210",
                 "Working", "Google", "9876543211", "101", 8500, AdvancePaidStatus.PAID, 8500
         );
+        sampleTenant.setPropertyId(1L);
 
-        sampleInvoice = Invoice.builder()
+        sampleInvoice = Invoice.builder().propertyId(1L)
                 .id(1L)
                 .invoiceNumber("INV-OCT202-1001")
                 .tenantUid("TNT-101")
@@ -193,7 +194,7 @@ class BillingServiceTest {
 
         when(invoiceRepository.findById(1L)).thenReturn(Optional.of(sampleInvoice));
         when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(ledgerRepository.findTopByOrderByCreatedAtDescIdDesc()).thenReturn(Optional.of(LedgerTransaction.builder().runningBalance(482150L).build()));
+        when(ledgerRepository.findByPropertyIdOrderByCreatedAtDescIdDesc(1L)).thenReturn(List.of(LedgerTransaction.builder().propertyId(1L).type(TransactionType.CREDIT).amount(482150).build()));
         when(ledgerRepository.save(any(LedgerTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
         InvoiceResponseDto result = billingService.recordPayment(1L, payReq);
@@ -226,7 +227,7 @@ class BillingServiceTest {
     @Test
     @DisplayName("Should record custom debit transaction in ledger")
     void testRecordCustomTransaction_Debit() {
-        LedgerTransactionRequestDto req = LedgerTransactionRequestDto.builder()
+        LedgerTransactionRequestDto req = LedgerTransactionRequestDto.builder().propertyId(1L)
                 .type(TransactionType.DEBIT)
                 .accountHead("Maintenance Expense")
                 .description("Plumbing Repairs")
@@ -236,7 +237,7 @@ class BillingServiceTest {
                 .date("2024-10-04")
                 .build();
 
-        when(ledgerRepository.findTopByOrderByCreatedAtDescIdDesc()).thenReturn(Optional.of(LedgerTransaction.builder().runningBalance(482150L).build()));
+        when(ledgerRepository.findByPropertyIdOrderByCreatedAtDescIdDesc(1L)).thenReturn(List.of(LedgerTransaction.builder().propertyId(1L).type(TransactionType.CREDIT).amount(482150).build()));
         when(ledgerRepository.save(any(LedgerTransaction.class))).thenAnswer(inv -> {
             LedgerTransaction t = inv.getArgument(0);
             t.setId(101L);

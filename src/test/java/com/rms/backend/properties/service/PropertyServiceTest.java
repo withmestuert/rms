@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, com.rms.backend.security.OwnerTestContext.class})
 class PropertyServiceTest {
 
     @Mock
@@ -38,6 +38,7 @@ class PropertyServiceTest {
     @BeforeEach
     void setUp() {
         sampleProperty = new Property();
+        sampleProperty.setOwnerId(99L);
         sampleProperty.setId(1L);
         sampleProperty.setName("Greenwood PG Phase 1");
         sampleProperty.setCode("GW-PG-01");
@@ -72,7 +73,7 @@ class PropertyServiceTest {
     @Test
     @DisplayName("getAllProperties returns list of response DTOs")
     void testGetAllProperties() {
-        when(propertyRepository.findAll()).thenReturn(List.of(sampleProperty));
+        when(propertyRepository.findByOwnerId(99L)).thenReturn(List.of(sampleProperty));
 
         List<PropertyResponseDto> result = propertyService.getAllProperties();
 
@@ -95,11 +96,10 @@ class PropertyServiceTest {
     }
 
     @Test
-    @DisplayName("getPropertyById throws ResourceNotFoundException when not found")
+    @DisplayName("getPropertyById denies IDs outside the caller scope")
     void testGetPropertyByIdNotFound() {
-        when(propertyRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFoundException.class, () -> propertyService.getPropertyById(999L));
+        assertThrows(org.springframework.security.access.AccessDeniedException.class, () -> propertyService.getPropertyById(999L));
     }
 
     @Test
@@ -177,11 +177,10 @@ class PropertyServiceTest {
     }
 
     @Test
-    @DisplayName("deleteProperty throws ResourceNotFoundException when ID does not exist")
+    @DisplayName("deleteProperty denies IDs outside the caller scope")
     void testDeletePropertyNotFound() {
-        when(propertyRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFoundException.class, () -> propertyService.deleteProperty(999L));
+        assertThrows(org.springframework.security.access.AccessDeniedException.class, () -> propertyService.deleteProperty(999L));
         verify(propertyRepository, never()).delete(any());
     }
 }

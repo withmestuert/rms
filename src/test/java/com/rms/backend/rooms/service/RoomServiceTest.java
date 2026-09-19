@@ -22,7 +22,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, com.rms.backend.security.OwnerTestContext.class})
 class RoomServiceTest {
 
     @Mock
@@ -42,6 +42,7 @@ class RoomServiceTest {
     @BeforeEach
     void setUp() {
         emptyRoom = new Room("999", "9", "SINGLE", 5000, 1, true);
+        emptyRoom.setPropertyId(1L);
         emptyRoom.setCurrentOccupancy(0);
         emptyRoom.setReservedCapacity(0);
     }

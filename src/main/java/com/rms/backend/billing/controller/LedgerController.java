@@ -1,5 +1,7 @@
 package com.rms.backend.billing.controller;
 
+import com.rms.backend.common.SecurityConstants;
+import com.rms.backend.common.ApiPaths;
 import com.rms.backend.billing.dto.LedgerTransactionRequestDto;
 import com.rms.backend.billing.dto.LedgerTransactionResponseDto;
 import com.rms.backend.billing.entity.TransactionType;
@@ -14,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/ledger")
+@RequestMapping(ApiPaths.API_LEDGER)
 @RequiredArgsConstructor
 public class LedgerController {
 
@@ -23,7 +25,7 @@ public class LedgerController {
     @GetMapping
     public ResponseEntity<List<LedgerTransactionResponseDto>> getAllTransactions(
             @RequestParam(required = false) TransactionType type,
-            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestHeader(value = SecurityConstants.PROPERTY_HEADER, required = false) Long headerPropId,
             @RequestParam(value = "propertyId", required = false) Long queryPropId) {
         Long effectivePropId = queryPropId != null ? queryPropId : headerPropId;
         List<LedgerTransactionResponseDto> txns = effectivePropId != null
@@ -32,7 +34,7 @@ public class LedgerController {
         return ResponseEntity.ok(txns);
     }
 
-    @GetMapping("/balance")
+    @GetMapping(ApiPaths.BALANCE)
     public ResponseEntity<Map<String, Long>> getRunningBalance() {
         long balance = billingService.getLatestRunningBalance();
         return ResponseEntity.ok(Map.of("runningBalance", balance));
@@ -41,7 +43,7 @@ public class LedgerController {
     @PostMapping
     public ResponseEntity<LedgerTransactionResponseDto> recordTransaction(
             @Valid @RequestBody LedgerTransactionRequestDto dto,
-            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestHeader(value = SecurityConstants.PROPERTY_HEADER, required = false) Long headerPropId,
             @RequestParam(value = "propertyId", required = false) Long queryPropId) {
         Long effectivePropId = queryPropId != null ? queryPropId : (headerPropId != null ? headerPropId : dto.getPropertyId());
         if (effectivePropId != null) {

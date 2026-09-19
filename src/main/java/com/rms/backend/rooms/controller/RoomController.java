@@ -1,5 +1,7 @@
 package com.rms.backend.rooms.controller;
 
+import com.rms.backend.common.SecurityConstants;
+import com.rms.backend.common.ApiPaths;
 import com.rms.backend.rooms.entity.Room;
 import com.rms.backend.rooms.service.RoomService;
 import org.springframework.http.HttpStatus;
@@ -12,7 +14,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/rooms")
+@RequestMapping(ApiPaths.API_ROOMS)
 public class RoomController {
 
     private final RoomService roomService;
@@ -25,7 +27,7 @@ public class RoomController {
     @PostMapping
     public ResponseEntity<Room> createRoom(
             @Valid @RequestBody RoomRequestDto roomRequestDTO,
-            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestHeader(value = SecurityConstants.PROPERTY_HEADER, required = false) Long headerPropId,
             @RequestParam(value = "propertyId", required = false) Long queryPropId) {
 
         Long effectivePropId = queryPropId != null ? queryPropId : (headerPropId != null ? headerPropId : roomRequestDTO.getPropertyId());
@@ -42,7 +44,7 @@ public class RoomController {
 
     @GetMapping
     public List<Room> getAllRooms(
-            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestHeader(value = SecurityConstants.PROPERTY_HEADER, required = false) Long headerPropId,
             @RequestParam(value = "propertyId", required = false) Long queryPropId) {
         Long effectivePropId = queryPropId != null ? queryPropId : headerPropId;
         if (effectivePropId != null) {
@@ -51,12 +53,12 @@ public class RoomController {
         return roomService.getAllRooms();
     }
 
-    @GetMapping("/{roomNo}")
+    @GetMapping(ApiPaths.ROOMNO)
     public Room getRoomByRoomNo(@PathVariable String roomNo) {
         return roomService.getRoomByRoomNo(roomNo);
     }
 
-    /*@PutMapping("/{roomNo}")
+    /*@PutMapping(ApiPaths.ROOMNO)
     public Room updateRoom(
             @PathVariable String roomNo,
             @RequestBody Room room
@@ -65,7 +67,7 @@ public class RoomController {
     }*/
 
     //Updates with DTO code for updation
-    @PutMapping("/{roomNo}")
+    @PutMapping(ApiPaths.ROOMNO)
     public Room updateRoom(
             @PathVariable String roomNo,
             @Valid @RequestBody RoomRequestDto roomRequestDTO) {
@@ -73,7 +75,7 @@ public class RoomController {
         return roomService.updateRoom(roomNo, roomRequestDTO);
     }
     //DELETE
-    @DeleteMapping("/{roomNo}")
+    @DeleteMapping(ApiPaths.ROOMNO)
     public ResponseEntity<String> deleteRoom(
             @PathVariable String roomNo) {
 

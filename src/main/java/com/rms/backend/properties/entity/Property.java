@@ -1,5 +1,6 @@
 package com.rms.backend.properties.entity;
 
+import com.rms.backend.common.SecurityConstants;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -19,6 +20,8 @@ public class Property {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    private Long ownerId;
 
     @Column(name = "name", nullable = false, unique = true)
     private String name;
@@ -68,7 +71,7 @@ public class Property {
         this.createdAt = now;
         this.updatedAt = now;
         if (this.status == null) {
-            this.status = "ACTIVE";
+            this.status = SecurityConstants.ACTIVE;
         }
         if (this.propertyType == null) {
             this.propertyType = "PG";

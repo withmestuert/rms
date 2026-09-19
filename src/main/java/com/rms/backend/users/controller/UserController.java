@@ -1,5 +1,6 @@
 package com.rms.backend.users.controller;
 
+import com.rms.backend.common.ApiPaths;
 import com.rms.backend.users.dto.UserRequestDto;
 import com.rms.backend.users.dto.UserResponseDto;
 import com.rms.backend.users.service.UserService;
@@ -11,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping(ApiPaths.API_USERS)
 public class UserController {
 
     private final UserService userService;
@@ -25,7 +26,7 @@ public class UserController {
         return ResponseEntity.ok(userService.getAllUsers());
     }
 
-    @GetMapping("/{id}")
+    @GetMapping(ApiPaths.ID)
     public ResponseEntity<UserResponseDto> getUserById(@PathVariable Long id) {
         return ResponseEntity.ok(userService.getUserById(id));
     }
@@ -36,7 +37,7 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping(ApiPaths.ID)
     public ResponseEntity<UserResponseDto> updateUser(
             @PathVariable Long id,
             @Valid @RequestBody UserRequestDto dto) {
@@ -44,7 +45,7 @@ public class UserController {
         return ResponseEntity.ok(updated);
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping(ApiPaths.ID)
     public ResponseEntity<String> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
         return ResponseEntity.ok("User deleted successfully");

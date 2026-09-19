@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>RMS Administration</title>
+  <link rel="stylesheet" href="./admin.css">
+  <script type="module" src="./admin.js"></script>
+</head>
+<body>
+  <main>
+    <header><div><p class="eyebrow">RMS / ADMINISTRATION</p><h1>Property owner accounts</h1><p>Set up your administrator and manage PG owners.</p></div><button id="logout" hidden>Sign out</button></header>
+    <p id="message" role="status" aria-live="polite">Connecting…</p>
+    <p id="testing" class="warning" hidden>Testing mode: authentication and authorization are disabled. Use isolated test data only.</p>
+    <section id="setup" hidden><h2>Create the root administrator</h2><p>This one-time setup requires the setup key provided by your server administrator.</p>
+      <form id="setup-form">
+        <label>Setup key<input name="bootstrapKey" type="password" required autocomplete="off"></label>
+        <label>Full name<input name="fullName" required maxlength="150" autocomplete="name"></label>
+        <label>Username<input name="username" required pattern="[a-zA-Z0-9._-]{3,100}" autocomplete="username"></label>
+        <label>Email<input name="email" type="email" required maxlength="254" autocomplete="email"></label>
+        <label>Password<input name="password" type="password" required minlength="12" maxlength="72" autocomplete="new-password"></label>
+        <button>Create root administrator</button>
+      </form>
+    </section>
+    <section id="login"><h2>Administrator sign in</h2>
+      <form id="login-form"><label>Username<input name="username" required autocomplete="username"></label><label>Password<input name="password" type="password" required autocomplete="current-password"></label><button>Sign in</button></form>
+    </section>
+    <div id="workspace" hidden>
+      <div class="columns"><section><h2>Add a PG owner</h2>
+        <form id="owner-form"><label>Full name<input name="fullName" required maxlength="150"></label><label>Username<input name="username" required pattern="[a-zA-Z0-9._-]{3,100}" autocomplete="off"></label><label>Email<input name="email" type="email" required maxlength="254"></label><label>Initial password<input name="password" type="password" required minlength="12" maxlength="72" autocomplete="new-password"></label><button>Create owner</button></form>
+      </section><section><h2>Reset an owner’s password</h2><form id="reset-form"><label>Owner<select name="id" id="owner-select" required></select></label><label>New password<input name="password" type="password" required minlength="12" maxlength="72" autocomplete="new-password"></label><button>Reset password and revoke sessions</button></form><p>Share credentials through a trusted channel. Owners can change their password after signing in.</p></section></div>
+      <section><div class="section-heading"><h2>PG owners</h2><button id="refresh" class="secondary">Refresh</button></div><div class="table-scroll"><table><thead><tr><th>Owner</th><th>Username / email</th><th>Status</th><th>Actions</th></tr></thead><tbody id="owners"></tbody></table></div><p id="empty" hidden>No owners yet. Create the first owner above.</p></section>
+      <section id="properties-section" hidden><h2>Owner’s properties</h2><ul id="properties"></ul></section>
+      <section><h2>Change your administrator password</h2><form id="password-form"><label>Current password<input name="currentPassword" type="password" required autocomplete="current-password"></label><label>New password<input name="newPassword" type="password" required minlength="12" maxlength="72" autocomplete="new-password"></label><button>Change password and sign out</button></form></section>
+    </div>
+  </main>
+</body>
+</html>

@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, com.rms.backend.security.OwnerTestContext.class})
 class TenantServiceTest {
 
     @Mock
@@ -60,6 +60,7 @@ class TenantServiceTest {
         sampleRequest.setStandardRent(7500);
 
         sampleRoom = new Room();
+        sampleRoom.setPropertyId(1L);
         sampleRoom.setRoomNo("101");
         sampleRoom.setFloor("1st");
         sampleRoom.setRoomType("Double Sharing");
@@ -190,12 +191,14 @@ class TenantServiceTest {
     @DisplayName("Deleting tenant performs soft delete and frees up room availability")
     void testDeleteTenantFreesRoom() {
         Tenant tenant = new Tenant();
+        tenant.setPropertyId(1L);
         tenant.setUid("T-101");
         tenant.setRoomNo("101");
         tenant.setStatus("ACTIVE");
 
         sampleRoom.setAvailable(false);
         Admission activeAdmission = new Admission();
+        activeAdmission.setPropertyId(1L);
         activeAdmission.setStatus(AdmissionStatus.PAID);
 
         when(tenantRepository.findById("T-101")).thenReturn(Optional.of(tenant));
@@ -220,6 +223,7 @@ class TenantServiceTest {
     @DisplayName("verifyAdvancePayment updates status to PAID and updates amount when provided")
     void testVerifyAdvancePaymentWithoutPendingAdmissions() {
         Tenant tenant = new Tenant();
+        tenant.setPropertyId(1L);
         tenant.setUid("T-101");
         tenant.setAdvancePaid(5000);
         tenant.setAdvancePaidStatus(AdvancePaidStatus.PENDING);
@@ -240,11 +244,13 @@ class TenantServiceTest {
     @DisplayName("verifyAdvancePayment confirms pending admission and adjusts room capacity")
     void testVerifyAdvancePaymentWithPendingAdmission() {
         Tenant tenant = new Tenant();
+        tenant.setPropertyId(1L);
         tenant.setUid("T-101");
         tenant.setAdvancePaid(5000);
         tenant.setAdvancePaidStatus(AdvancePaidStatus.PENDING);
 
         Room room = new Room();
+        room.setPropertyId(1L);
         room.setRoomNo("101");
         room.setOccupancy(2);
         room.setCurrentOccupancy(0);
@@ -252,6 +258,7 @@ class TenantServiceTest {
         room.setAvailable(true);
 
         Admission admission = new Admission();
+        admission.setPropertyId(1L);
         admission.setAdmissionNumber("ADM-001");
         admission.setStatus(AdmissionStatus.PENDING);
         admission.setRoom(room);

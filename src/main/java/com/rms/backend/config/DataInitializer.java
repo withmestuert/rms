@@ -1,5 +1,6 @@
 package com.rms.backend.config;
 
+import com.rms.backend.common.SecurityConstants;
 import com.rms.backend.properties.entity.Property;
 import com.rms.backend.properties.repository.PropertyRepository;
 import com.rms.backend.users.entity.User;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Component;
  * but only if the respective tables are completely empty.
  */
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "rms.legacy-repair.enabled", havingValue = "true")
 public class DataInitializer implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DataInitializer.class);
@@ -69,7 +71,7 @@ public class DataInitializer implements CommandLineRunner {
         p1.setTotalRooms(30);
         p1.setContactNumber("+91 98451 00001");
         p1.setContactEmail("gwpg1@example.com");
-        p1.setStatus("ACTIVE");
+        p1.setStatus(SecurityConstants.ACTIVE);
         propertyRepository.save(p1);
 
         Property p2 = new Property();
@@ -84,7 +86,7 @@ public class DataInitializer implements CommandLineRunner {
         p2.setTotalRooms(50);
         p2.setContactNumber("+91 98451 00002");
         p2.setContactEmail("gwres-a@example.com");
-        p2.setStatus("ACTIVE");
+        p2.setStatus(SecurityConstants.ACTIVE);
         propertyRepository.save(p2);
 
         Property p3 = new Property();
@@ -99,7 +101,7 @@ public class DataInitializer implements CommandLineRunner {
         p3.setTotalRooms(45);
         p3.setContactNumber("+91 98451 00003");
         p3.setContactEmail("gwres-b@example.com");
-        p3.setStatus("ACTIVE");
+        p3.setStatus(SecurityConstants.ACTIVE);
         propertyRepository.save(p3);
 
         Property p4 = new Property();
@@ -114,7 +116,7 @@ public class DataInitializer implements CommandLineRunner {
         p4.setTotalRooms(60);
         p4.setContactNumber("+91 98451 00004");
         p4.setContactEmail("skpg1@example.com");
-        p4.setStatus("ACTIVE");
+        p4.setStatus(SecurityConstants.ACTIVE);
         propertyRepository.save(p4);
 
         log.info("Seeded 4 default properties.");
@@ -134,7 +136,7 @@ public class DataInitializer implements CommandLineRunner {
         admin.setFullName("Rajesh Sharma");
         admin.setRole("ADMIN");
         admin.setPhone("+91 98451 10001");
-        admin.setStatus("ACTIVE");
+        admin.setStatus(SecurityConstants.ACTIVE);
         userRepository.save(admin);
 
         User manager = new User();
@@ -143,7 +145,7 @@ public class DataInitializer implements CommandLineRunner {
         manager.setFullName("Priya Nair");
         manager.setRole("PROPERTY_MANAGER");
         manager.setPhone("+91 98451 10002");
-        manager.setStatus("ACTIVE");
+        manager.setStatus(SecurityConstants.ACTIVE);
         userRepository.save(manager);
 
         User staff = new User();
@@ -152,7 +154,7 @@ public class DataInitializer implements CommandLineRunner {
         staff.setFullName("Ravi Kumar");
         staff.setRole("STAFF");
         staff.setPhone("+91 98451 10003");
-        staff.setStatus("ACTIVE");
+        staff.setStatus(SecurityConstants.ACTIVE);
         userRepository.save(staff);
 
         log.info("Seeded 3 default users (Admin, Property Manager, Staff).");

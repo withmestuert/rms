@@ -23,7 +23,11 @@ public class UserRequestDto {
     @NotBlank(message = "Full name is required")
     private String fullName;
 
-    private String role; // ADMIN, PROPERTY_MANAGER, STAFF, OWNER
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
+    private String password;
+    private java.util.Set<Long> propertyIds;
+
+    private String role; // REPRESENTATIVE, SUB_MEMBER
     private String phone;
     private String status; // ACTIVE, INACTIVE
 }

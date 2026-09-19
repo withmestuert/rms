@@ -1,5 +1,7 @@
 package com.rms.backend.admissions.service;
 
+import com.rms.backend.common.SecurityConstants;
+import com.rms.backend.security.Access;
 import com.rms.backend.admissions.dto.AdmissionRequestDto;
 import com.rms.backend.admissions.dto.AdmissionResponseDto;
 import com.rms.backend.admissions.dto.TenantStayCheckDto;
@@ -49,6 +51,10 @@ public class AdmissionService {
         Room room = roomRepository.findByRoomNoWithLock(dto.getRoomNo())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Room not found: " + dto.getRoomNo()));
+
+        Access.write(room.getPropertyId());
+        Access.matchingProperty(dto.getPropertyId(), room.getPropertyId());
+        dto.setPropertyId(room.getPropertyId());
 
         // 2. Capacity check
         if (!room.hasAvailableCapacity()) {
@@ -107,7 +113,11 @@ public class AdmissionService {
         Admission admission = admissionRepository.findByAdmissionNumber(admissionNumber)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Admission not found: " + admissionNumber));
+        Access.read(admission.getPropertyId());
 
+        Access.write(admission.getPropertyId());
+        Access.write(admission.getTenant().getPropertyId());
+        Access.write(admission.getRoom().getPropertyId());
         if (admission.getStatus() == AdmissionStatus.PAID) {
             throw new DuplicateResourceException("Admission is already confirmed and PAID");
         }
@@ -150,7 +160,11 @@ public class AdmissionService {
         Admission admission = admissionRepository.findByAdmissionNumber(admissionNumber)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Admission not found: " + admissionNumber));
+        Access.read(admission.getPropertyId());
 
+        Access.write(admission.getPropertyId());
+        Access.write(admission.getTenant().getPropertyId());
+        Access.write(admission.getRoom().getPropertyId());
         if (admission.getStatus() == AdmissionStatus.PAID) {
             throw new DuplicateResourceException(
                     "Cannot cancel a PAID admission through the pending cancellation workflow");
@@ -191,6 +205,7 @@ public class AdmissionService {
     public List<AdmissionResponseDto> getAllAdmissions() {
         return admissionRepository.findAll()
                 .stream()
+                .filter(a -> Access.canAccess(a.getPropertyId()))
                 .map(this::toResponseDto)
                 .collect(Collectors.toList());
     }
@@ -200,8 +215,10 @@ public class AdmissionService {
         if (propertyId == null) {
             return getAllAdmissions();
         }
+        Access.read(propertyId);
         return admissionRepository.findByPropertyId(propertyId)
                 .stream()
+                .filter(a -> Access.canAccess(a.getPropertyId()))
                 .map(this::toResponseDto)
                 .collect(Collectors.toList());
     }
@@ -211,6 +228,7 @@ public class AdmissionService {
         Admission admission = admissionRepository.findByAdmissionNumber(admissionNumber)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Admission not found: " + admissionNumber));
+        Access.read(admission.getPropertyId());
         return toResponseDto(admission);
     }
 
@@ -224,7 +242,7 @@ public class AdmissionService {
             tenant = tenantRepository.findByMobileNumber(mobileNumber.trim()).orElse(null);
         }
 
-        if (tenant == null) {
+        if (tenant == null || !Access.canAccess(tenant.getPropertyId())) {
             TenantStayCheckDto dto = new TenantStayCheckDto();
             dto.setExists(false);
             return dto;
@@ -242,8 +260,8 @@ public class AdmissionService {
         dto.setStandardRent(tenant.getStandardRent());
         dto.setAdvancePaid(tenant.getAdvancePaid());
 
-        boolean isCurrentlyActive = "ACTIVE".equalsIgnoreCase(tenant.getStatus()) || tenant.getStatus() == null;
-        List<Admission> allAdmissions = admissionRepository.findByTenant_UidOrderByEnrollmentDateDesc(tenant.getUid());
+        boolean isCurrentlyActive = SecurityConstants.ACTIVE.equalsIgnoreCase(tenant.getStatus()) || tenant.getStatus() == null;
+        List<Admission> allAdmissions = admissionRepository.findByTenant_UidOrderByEnrollmentDateDesc(tenant.getUid()).stream().filter(a -> Access.canAccess(a.getPropertyId())).toList();
         dto.setTotalPreviousStays(allAdmissions.size());
 
         boolean hasActiveStay = isCurrentlyActive && allAdmissions.stream()
@@ -292,13 +310,16 @@ public class AdmissionService {
         }
 
         if (tenant != null) {
+            Access.write(tenant.getPropertyId());
+            Access.matchingProperty(dto.getPropertyId(), tenant.getPropertyId());
             // If returning resident (previously inactive/vacated), reactivate for new stay
-            if ("INACTIVE".equalsIgnoreCase(tenant.getStatus())) {
+            if (SecurityConstants.INACTIVE.equalsIgnoreCase(tenant.getStatus())) {
                 // Ensure any prior open admissions are marked VACATED
                 List<Admission> pastActive = admissionRepository.findByTenant_Uid(tenant.getUid()).stream()
                         .filter(a -> a.getStatus() == AdmissionStatus.PENDING || a.getStatus() == AdmissionStatus.PAID)
                         .toList();
                 for (Admission a : pastActive) {
+                    Access.write(a.getPropertyId());
                     a.setStatus(AdmissionStatus.VACATED);
                     if (a.getVacatedOn() == null) {
                         a.setVacatedOn(a.getUpdatedAt() != null ? a.getUpdatedAt().toLocalDate() : LocalDate.now());
@@ -307,7 +328,7 @@ public class AdmissionService {
                 }
 
                 // Reactivate tenant and update to new stay details
-                tenant.setStatus("ACTIVE");
+                tenant.setStatus(SecurityConstants.ACTIVE);
                 tenant.setRoomNo(dto.getRoomNo());
                 if (dto.getName() != null && !dto.getName().isBlank()) {
                     tenant.setName(dto.getName());

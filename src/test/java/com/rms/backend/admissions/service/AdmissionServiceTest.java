@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, com.rms.backend.security.OwnerTestContext.class})
 class AdmissionServiceTest {
 
     @Mock
@@ -54,6 +54,7 @@ class AdmissionServiceTest {
     @BeforeEach
     void setUp() {
         sampleRoom = new Room();
+        sampleRoom.setPropertyId(1L);
         sampleRoom.setRoomNo("101");
         sampleRoom.setOccupancy(2);
         sampleRoom.setCurrentOccupancy(0);
@@ -62,6 +63,7 @@ class AdmissionServiceTest {
         sampleRoom.setRentPerMonth(7500);
 
         sampleTenant = new Tenant();
+        sampleTenant.setPropertyId(1L);
         sampleTenant.setUid("T-001");
         sampleTenant.setName("Rahul Kumar");
         sampleTenant.setAadhaarNo("1234-5678-9012");
@@ -74,6 +76,7 @@ class AdmissionServiceTest {
         sampleTenant.setStandardRent(7500);
 
         sampleAdmission = new Admission();
+        sampleAdmission.setPropertyId(1L);
         sampleAdmission.setId(1001L);
         sampleAdmission.setAdmissionNumber("ADM-1001");
         sampleAdmission.setTenant(sampleTenant);
@@ -378,6 +381,7 @@ class AdmissionServiceTest {
         when(tenantRepository.findByAadhaarNo("1234-5678-9012")).thenReturn(Optional.of(sampleTenant));
 
         Admission pastStay = new Admission();
+        pastStay.setPropertyId(1L);
         pastStay.setStatus(AdmissionStatus.VACATED);
         pastStay.setEnrollmentDate(LocalDate.of(2026, 1, 10));
         pastStay.setVacatedOn(LocalDate.of(2026, 5, 20));
@@ -400,6 +404,7 @@ class AdmissionServiceTest {
         sampleTenant.setRoomNo("102");
 
         Admission pastStay = new Admission();
+        pastStay.setPropertyId(1L);
         pastStay.setStatus(AdmissionStatus.PAID);
 
         when(roomRepository.findByRoomNoWithLock("101")).thenReturn(Optional.of(sampleRoom));

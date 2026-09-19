@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, com.rms.backend.security.OwnerTestContext.class})
 class VacateRequestServiceTest {
 
     @Mock
@@ -46,6 +46,7 @@ class VacateRequestServiceTest {
     @BeforeEach
     void setUp() {
         sampleTenant = new Tenant();
+        sampleTenant.setPropertyId(1L);
         sampleTenant.setUid("T-101");
         sampleTenant.setName("Rahul Kumar");
         sampleTenant.setAadhaarNo("123456789012");
@@ -55,6 +56,7 @@ class VacateRequestServiceTest {
         sampleTenant.setStandardRent(8000);
 
         sampleRoom = new Room();
+        sampleRoom.setPropertyId(1L);
         sampleRoom.setRoomNo("102");
         sampleRoom.setOccupancy(2);
         sampleRoom.setCurrentOccupancy(2);
@@ -131,7 +133,7 @@ class VacateRequestServiceTest {
     @Test
     @DisplayName("Approve vacate request updates room status to vacate_notice")
     void testApproveVacateRequest() {
-        VacateRequest request = VacateRequest.builder()
+        VacateRequest request = VacateRequest.builder().propertyId(1L)
                 .id(1L)
                 .requestId("VR-1001")
                 .tenantUid("T-101")

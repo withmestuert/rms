@@ -1,5 +1,7 @@
 package com.rms.backend.billing.controller;
 
+import com.rms.backend.common.SecurityConstants;
+import com.rms.backend.common.ApiPaths;
 import com.rms.backend.billing.dto.*;
 import com.rms.backend.billing.entity.InvoiceStatus;
 import com.rms.backend.billing.service.BillingService;
@@ -12,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/invoices")
+@RequestMapping(ApiPaths.API_INVOICES)
 @RequiredArgsConstructor
 public class InvoiceController {
 
@@ -22,7 +24,7 @@ public class InvoiceController {
     public ResponseEntity<List<InvoiceResponseDto>> getAllInvoices(
             @RequestParam(required = false) String monthYear,
             @RequestParam(required = false) InvoiceStatus status,
-            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestHeader(value = SecurityConstants.PROPERTY_HEADER, required = false) Long headerPropId,
             @RequestParam(value = "propertyId", required = false) Long queryPropId) {
         Long effectivePropId = queryPropId != null ? queryPropId : headerPropId;
         List<InvoiceResponseDto> invoices = effectivePropId != null
@@ -31,7 +33,7 @@ public class InvoiceController {
         return ResponseEntity.ok(invoices);
     }
 
-    @GetMapping("/{id}")
+    @GetMapping(ApiPaths.ID)
     public ResponseEntity<InvoiceResponseDto> getInvoiceById(@PathVariable Long id) {
         InvoiceResponseDto invoice = billingService.getInvoiceById(id);
         return ResponseEntity.ok(invoice);
@@ -40,7 +42,7 @@ public class InvoiceController {
     @PostMapping
     public ResponseEntity<InvoiceResponseDto> createInvoice(
             @Valid @RequestBody InvoiceRequestDto dto,
-            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestHeader(value = SecurityConstants.PROPERTY_HEADER, required = false) Long headerPropId,
             @RequestParam(value = "propertyId", required = false) Long queryPropId) {
         Long effectivePropId = queryPropId != null ? queryPropId : (headerPropId != null ? headerPropId : dto.getPropertyId());
         if (effectivePropId != null) {
@@ -50,14 +52,14 @@ public class InvoiceController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    @PostMapping("/generate-cycle")
+    @PostMapping(ApiPaths.GENERATE_CYCLE)
     public ResponseEntity<CycleGenerationResultDto> generateCycleInvoices(
             @Valid @RequestBody CycleGenerationRequestDto dto) {
         CycleGenerationResultDto result = billingService.generateCycleInvoices(dto);
         return ResponseEntity.ok(result);
     }
 
-    @PostMapping("/{id}/pay")
+    @PostMapping(ApiPaths.ID_PAY)
     public ResponseEntity<InvoiceResponseDto> recordPayment(
             @PathVariable Long id,
             @Valid @RequestBody RecordPaymentDto dto) {

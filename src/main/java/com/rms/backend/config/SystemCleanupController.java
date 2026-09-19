@@ -1,5 +1,6 @@
 package com.rms.backend.config;
 
+import com.rms.backend.common.ApiPaths;
 import com.rms.backend.admissions.repository.AdmissionRepository;
 import com.rms.backend.billing.repository.InvoiceRepository;
 import com.rms.backend.billing.repository.LedgerTransactionRepository;
@@ -16,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/system")
+@RequestMapping(ApiPaths.API_SYSTEM)
 @RequiredArgsConstructor
 @Slf4j
 public class SystemCleanupController {
@@ -29,7 +30,7 @@ public class SystemCleanupController {
     private final PropertyRepository propertyRepository;
     private final UserRepository userRepository;
 
-    @PostMapping("/clean-database")
+    @PostMapping(ApiPaths.CLEAN_DATABASE)
     @Transactional
     public ResponseEntity<Map<String, Object>> cleanDatabase() {
         log.warn("Wiping all tables for clean manual test flow...");

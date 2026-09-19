@@ -1,5 +1,6 @@
 package com.rms.backend.webhook.controller;
 
+import com.rms.backend.common.ApiPaths;
 import com.rms.backend.vacate.dto.VacateRequestDto;
 import com.rms.backend.vacate.dto.VacateResponseDto;
 import com.rms.backend.vacate.service.VacateRequestService;
@@ -16,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping(ApiPaths.API)
 public class WebhookController {
 
     private static final Logger log = LoggerFactory.getLogger(WebhookController.class);
@@ -31,7 +32,7 @@ public class WebhookController {
     /**
      * WhatsApp Meta Cloud API Webhook Verification Endpoint
      */
-    @GetMapping("/whatsapp/webhook")
+    @GetMapping(ApiPaths.WHATSAPP_WEBHOOK)
     public ResponseEntity<String> verifyWhatsAppWebhook(
             @RequestParam(value = "hub.mode", required = false) String mode,
             @RequestParam(value = "hub.verify_token", required = false) String token,
@@ -55,7 +56,7 @@ public class WebhookController {
     /**
      * WhatsApp Inbound Message & Delivery Status Webhook Receiver
      */
-    @PostMapping("/whatsapp/webhook")
+    @PostMapping(ApiPaths.WHATSAPP_WEBHOOK)
     public ResponseEntity<Map<String, Object>> handleWhatsAppWebhook(
             @RequestBody(required = false) Map<String, Object> payload) {
 
@@ -71,7 +72,7 @@ public class WebhookController {
      * Accepts submissions from Google Forms (via Google Apps Script),
      * Microsoft Forms (via Power Automate), Zapier, or direct HTTP webhooks.
      */
-    @PostMapping({"/webhooks/vacate-request", "/vacate/webhook"})
+    @PostMapping({ApiPaths.WEBHOOKS_VACATE_REQUEST, ApiPaths.VACATE_WEBHOOK})
     public ResponseEntity<Map<String, Object>> handleVacateRequestWebhook(
             @RequestBody(required = false) Map<String, Object> payload) {
 
@@ -142,7 +143,7 @@ public class WebhookController {
     /**
      * Payment Gateway Webhook Receiver (UPI, Razorpay, Cash QR)
      */
-    @PostMapping({"/payments/webhook", "/webhooks/payments"})
+    @PostMapping({ApiPaths.PAYMENTS_WEBHOOK, ApiPaths.WEBHOOKS_PAYMENTS})
     public ResponseEntity<Map<String, Object>> handlePaymentWebhook(
             @RequestBody(required = false) Map<String, Object> payload) {
 
@@ -157,7 +158,7 @@ public class WebhookController {
     /**
      * General Webhook Health / Ping Status
      */
-    @GetMapping({"/webhooks/status", "/webhooks/health"})
+    @GetMapping({ApiPaths.WEBHOOKS_STATUS, ApiPaths.WEBHOOKS_HEALTH})
     public ResponseEntity<Map<String, Object>> getWebhookHealth() {
         Map<String, Object> status = new HashMap<>();
         status.put("status", "HEALTHY");

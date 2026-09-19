@@ -1,5 +1,6 @@
 package com.rms.backend.notifications.service;
 
+import com.rms.backend.security.Access;
 import com.rms.backend.tenants.entity.Tenant;
 import com.rms.backend.tenants.repository.TenantRepository;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class WhatsAppNotificationService {
         Tenant tenant = tenantRepository.findById(tenantUid)
                 .orElseThrow(() -> new IllegalArgumentException("Tenant not found with UID: " + tenantUid));
 
+        Access.read(tenant.getPropertyId());
         String cleanPhone = tenant.getMobileNumber() != null
                 ? tenant.getMobileNumber().replaceAll("[^0-9]", "")
                 : "";

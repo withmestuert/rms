@@ -1,5 +1,7 @@
 package com.rms.backend.tenants.service;
 
+import com.rms.backend.common.SecurityConstants;
+import com.rms.backend.security.Access;
 import com.rms.backend.admissions.entity.Admission;
 import com.rms.backend.admissions.entity.AdmissionStatus;
 import com.rms.backend.admissions.repository.AdmissionRepository;
@@ -69,6 +71,9 @@ public class TenantService {
                         "Room not found with room number: " + dto.getRoomNo()
                 ));
 
+        Access.write(room.getPropertyId());
+        Access.matchingProperty(dto.getPropertyId(), room.getPropertyId());
+
         // 5. Verify room occupancy capacity
         long currentCount = tenantRepository.countActiveByRoomNo(dto.getRoomNo());
         if (currentCount >= room.getOccupancy()) {
@@ -111,25 +116,28 @@ public class TenantService {
     }
 
     public List<Tenant> getAllTenants() {
-        return tenantRepository.findAllActive();
+        return tenantRepository.findAllActive().stream().filter(t -> Access.canAccess(t.getPropertyId())).toList();
     }
 
     public List<Tenant> getTenantsByPropertyId(Long propertyId) {
         if (propertyId == null) {
             return getAllTenants();
         }
+        Access.read(propertyId);
         return tenantRepository.findActiveByPropertyId(propertyId);
     }
 
     public Tenant getTenantByUid(String uid) {
-        return tenantRepository.findById(uid)
+        Tenant result = tenantRepository.findById(uid)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Tenant not found with UID: " + uid)
                 );
+        Access.read(result.getPropertyId());
+        return result;
     }
 
     public List<Tenant> getTenantsByRoomNo(String roomNo) {
-        return tenantRepository.findActiveByRoomNo(roomNo);
+        return tenantRepository.findActiveByRoomNo(roomNo).stream().filter(t -> Access.canAccess(t.getPropertyId())).toList();
     }
 
     @Transactional
@@ -138,6 +146,13 @@ public class TenantService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Tenant not found with UID: " + uid)
                 );
+
+        Access.write(existingTenant.getPropertyId());
+        Room destination = roomRepository.findById(dto.getRoomNo()).orElseThrow(() -> new ResourceNotFoundException("Room not found"));
+        Access.write(destination.getPropertyId());
+        Access.matchingProperty(dto.getPropertyId(), destination.getPropertyId());
+        Access.matchingProperty(destination.getPropertyId(), existingTenant.getPropertyId());
+        dto.setPropertyId(destination.getPropertyId());
 
         // Check if aadhaar changed and already in use by another tenant
         if (dto.getAadhaarNo() != null && !dto.getAadhaarNo().isBlank()) {
@@ -179,6 +194,7 @@ public class TenantService {
 
             // Free up old room availability
             roomRepository.findById(oldRoomNo).ifPresent(oldRoom -> {
+                Access.write(oldRoom.getPropertyId());
                 oldRoom.setAvailable(true);
                 roomRepository.save(oldRoom);
             });
@@ -197,8 +213,8 @@ public class TenantService {
 
         if (dto.getStatus() != null && !dto.getStatus().isBlank()) {
             existingTenant.setStatus(dto.getStatus().trim().toUpperCase());
-        } else if ("INACTIVE".equalsIgnoreCase(existingTenant.getStatus())) {
-            existingTenant.setStatus("ACTIVE");
+        } else if (SecurityConstants.INACTIVE.equalsIgnoreCase(existingTenant.getStatus())) {
+            existingTenant.setStatus(SecurityConstants.ACTIVE);
         }
 
         return tenantRepository.save(existingTenant);
@@ -211,7 +227,8 @@ public class TenantService {
                         new ResourceNotFoundException("Tenant not found with UID: " + uid)
                 );
 
-        existingTenant.setStatus("INACTIVE");
+        Access.write(existingTenant.getPropertyId());
+        existingTenant.setStatus(SecurityConstants.INACTIVE);
         tenantRepository.save(existingTenant);
 
         // Mark any active admissions for this tenant as VACATED
@@ -219,6 +236,7 @@ public class TenantService {
                 .filter(adm -> adm.getStatus() == AdmissionStatus.PENDING || adm.getStatus() == AdmissionStatus.PAID)
                 .toList();
         for (Admission adm : activeAdmissions) {
+            Access.write(adm.getPropertyId());
             adm.setStatus(AdmissionStatus.VACATED);
             adm.setVacatedOn(LocalDate.now());
             admissionRepository.save(adm);
@@ -227,6 +245,7 @@ public class TenantService {
         String roomNo = existingTenant.getRoomNo();
         if (roomNo != null) {
             roomRepository.findById(roomNo).ifPresent(room -> {
+                Access.write(room.getPropertyId());
                 long activeCount = tenantRepository.countActiveByRoomNo(roomNo);
                 room.setCurrentOccupancy((int) activeCount);
                 room.recalculateAvailability();
@@ -240,6 +259,7 @@ public class TenantService {
         Tenant tenant = tenantRepository.findById(uid)
                 .orElseThrow(() -> new ResourceNotFoundException("Tenant not found with UID: " + uid));
 
+        Access.write(tenant.getPropertyId());
         tenant.setAdvancePaidStatus(AdvancePaidStatus.PAID);
         if (amount != null && amount > 0) {
             tenant.setAdvancePaid(amount);
@@ -251,12 +271,14 @@ public class TenantService {
                 .toList();
 
         for (Admission admission : pendingAdmissions) {
+            Access.write(admission.getPropertyId());
             admission.setStatus(AdmissionStatus.PAID);
             admission.setConfirmedOn(LocalDateTime.now());
             admissionRepository.save(admission);
 
             Room room = admission.getRoom();
             if (room != null) {
+                Access.write(room.getPropertyId());
                 room.setReservedCapacity(Math.max(0, room.getReservedCapacity() - 1));
                 room.setCurrentOccupancy(room.getCurrentOccupancy() + 1);
                 room.recalculateAvailability();

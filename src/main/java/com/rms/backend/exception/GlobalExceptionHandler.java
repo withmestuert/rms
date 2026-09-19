@@ -11,6 +11,11 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<String> denied(Exception ex) { return ResponseEntity.status(403).body("Access denied"); }
+    @ExceptionHandler(org.springframework.security.core.AuthenticationException.class)
+    public ResponseEntity<String> unauthenticated(Exception ex) { return ResponseEntity.status(401).body("Invalid credentials"); }
+
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<String> handleResourceNotFoundException(

@@ -1,5 +1,7 @@
 package com.rms.backend.admissions.controller;
 
+import com.rms.backend.common.SecurityConstants;
+import com.rms.backend.common.ApiPaths;
 import com.rms.backend.admissions.dto.AdmissionRequestDto;
 import com.rms.backend.admissions.dto.AdmissionResponseDto;
 import com.rms.backend.admissions.dto.TenantStayCheckDto;
@@ -12,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/admissions")
+@RequestMapping(ApiPaths.API_ADMISSIONS)
 public class AdmissionController {
 
     private final AdmissionService admissionService;
@@ -28,7 +30,7 @@ public class AdmissionController {
     @PostMapping
     public ResponseEntity<AdmissionResponseDto> createEnrollment(
             @Valid @RequestBody AdmissionRequestDto dto,
-            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestHeader(value = SecurityConstants.PROPERTY_HEADER, required = false) Long headerPropId,
             @RequestParam(value = "propertyId", required = false) Long queryPropId) {
         Long effectivePropId = queryPropId != null ? queryPropId : (headerPropId != null ? headerPropId : dto.getPropertyId());
         if (effectivePropId != null) {
@@ -42,7 +44,7 @@ public class AdmissionController {
      * GET /api/admissions/check-existing
      * Check if a resident already exists or has previous stays by Aadhaar or Mobile.
      */
-    @GetMapping("/check-existing")
+    @GetMapping(ApiPaths.CHECK_EXISTING)
     public ResponseEntity<TenantStayCheckDto> checkExistingTenant(
             @RequestParam(value = "aadhaarNo", required = false) String aadhaarNo,
             @RequestParam(value = "mobileNumber", required = false) String mobileNumber) {
@@ -56,7 +58,7 @@ public class AdmissionController {
      */
     @GetMapping
     public ResponseEntity<List<AdmissionResponseDto>> getAllAdmissions(
-            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestHeader(value = SecurityConstants.PROPERTY_HEADER, required = false) Long headerPropId,
             @RequestParam(value = "propertyId", required = false) Long queryPropId) {
         Long effectivePropId = queryPropId != null ? queryPropId : headerPropId;
         if (effectivePropId != null) {
@@ -69,7 +71,7 @@ public class AdmissionController {
      * GET /api/admissions/{admissionNumber}
      * Retrieve a specific admission by its admission number.
      */
-    @GetMapping("/{admissionNumber}")
+    @GetMapping(ApiPaths.ADMISSIONNUMBER)
     public ResponseEntity<AdmissionResponseDto> getAdmissionByNumber(
             @PathVariable String admissionNumber) {
         return ResponseEntity.ok(admissionService.getAdmissionByNumber(admissionNumber));
@@ -79,7 +81,7 @@ public class AdmissionController {
      * PUT /api/admissions/{admissionNumber}/confirm
      * Confirm a PENDING admission (transitions to PAID).
      */
-    @PutMapping("/{admissionNumber}/confirm")
+    @PutMapping(ApiPaths.ADMISSIONNUMBER_CONFIRM)
     public ResponseEntity<AdmissionResponseDto> confirmAdmission(
             @PathVariable String admissionNumber) {
         AdmissionResponseDto response = admissionService.confirmAdmission(admissionNumber);
@@ -90,7 +92,7 @@ public class AdmissionController {
      * DELETE /api/admissions/{admissionNumber}
      * Cancel a PENDING admission. Deletes tenant record if no other admission history exists.
      */
-    @DeleteMapping("/{admissionNumber}")
+    @DeleteMapping(ApiPaths.ADMISSIONNUMBER)
     public ResponseEntity<String> cancelPendingAdmission(
             @PathVariable String admissionNumber) {
         admissionService.cancelPendingAdmission(admissionNumber);

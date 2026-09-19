@@ -1,5 +1,6 @@
 package com.rms.backend.properties.controller;
 
+import com.rms.backend.common.ApiPaths;
 import com.rms.backend.properties.dto.PropertyRequestDto;
 import com.rms.backend.properties.dto.PropertyResponseDto;
 import com.rms.backend.properties.service.PropertyService;
@@ -11,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/properties")
+@RequestMapping(ApiPaths.API_PROPERTIES)
 public class PropertyController {
 
     private final PropertyService propertyService;
@@ -25,7 +26,7 @@ public class PropertyController {
         return ResponseEntity.ok(propertyService.getAllProperties());
     }
 
-    @GetMapping("/{id}")
+    @GetMapping(ApiPaths.ID)
     public ResponseEntity<PropertyResponseDto> getPropertyById(@PathVariable Long id) {
         return ResponseEntity.ok(propertyService.getPropertyById(id));
     }
@@ -36,7 +37,7 @@ public class PropertyController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping(ApiPaths.ID)
     public ResponseEntity<PropertyResponseDto> updateProperty(
             @PathVariable Long id,
             @Valid @RequestBody PropertyRequestDto dto) {
@@ -44,7 +45,7 @@ public class PropertyController {
         return ResponseEntity.ok(updated);
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping(ApiPaths.ID)
     public ResponseEntity<String> deleteProperty(@PathVariable Long id) {
         propertyService.deleteProperty(id);
         return ResponseEntity.ok("Property deleted successfully");

@@ -1,5 +1,7 @@
 package com.rms.backend.tenants.controller;
 
+import com.rms.backend.common.SecurityConstants;
+import com.rms.backend.common.ApiPaths;
 import com.rms.backend.tenants.dto.TenantRequestDto;
 import com.rms.backend.tenants.entity.Tenant;
 import com.rms.backend.tenants.service.TenantService;
@@ -11,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/tenants")
+@RequestMapping(ApiPaths.API_TENANTS)
 public class TenantController {
 
     private final TenantService tenantService;
@@ -23,7 +25,7 @@ public class TenantController {
     @PostMapping
     public ResponseEntity<Tenant> createTenant(
             @Valid @RequestBody TenantRequestDto tenantRequestDTO,
-            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestHeader(value = SecurityConstants.PROPERTY_HEADER, required = false) Long headerPropId,
             @RequestParam(value = "propertyId", required = false) Long queryPropId) {
 
         Long effectivePropId = queryPropId != null ? queryPropId : (headerPropId != null ? headerPropId : tenantRequestDTO.getPropertyId());
@@ -40,7 +42,7 @@ public class TenantController {
 
     @GetMapping
     public List<Tenant> getAllTenants(
-            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestHeader(value = SecurityConstants.PROPERTY_HEADER, required = false) Long headerPropId,
             @RequestParam(value = "propertyId", required = false) Long queryPropId) {
         Long effectivePropId = queryPropId != null ? queryPropId : headerPropId;
         if (effectivePropId != null) {
@@ -49,17 +51,17 @@ public class TenantController {
         return tenantService.getAllTenants();
     }
 
-    @GetMapping("/{uid}")
+    @GetMapping(ApiPaths.UID)
     public Tenant getTenantByUid(@PathVariable String uid) {
         return tenantService.getTenantByUid(uid);
     }
 
-    @GetMapping("/room/{roomNo}")
+    @GetMapping(ApiPaths.ROOM_ROOMNO)
     public List<Tenant> getTenantsByRoom(@PathVariable String roomNo) {
         return tenantService.getTenantsByRoomNo(roomNo);
     }
 
-    @PutMapping("/{uid}")
+    @PutMapping(ApiPaths.UID)
     public Tenant updateTenant(
             @PathVariable String uid,
             @Valid @RequestBody TenantRequestDto tenantRequestDTO) {
@@ -67,7 +69,7 @@ public class TenantController {
         return tenantService.updateTenant(uid, tenantRequestDTO);
     }
 
-    @DeleteMapping("/{uid}")
+    @DeleteMapping(ApiPaths.UID)
     public ResponseEntity<String> deleteTenant(
             @PathVariable String uid) {
 
@@ -76,7 +78,7 @@ public class TenantController {
         return ResponseEntity.ok("Tenant deleted successfully");
     }
 
-    @PutMapping("/{uid}/verify-advance")
+    @PutMapping(ApiPaths.UID_VERIFY_ADVANCE)
     public ResponseEntity<Tenant> verifyAdvancePayment(
             @PathVariable String uid,
             @RequestBody(required = false) java.util.Map<String, Integer> request) {
