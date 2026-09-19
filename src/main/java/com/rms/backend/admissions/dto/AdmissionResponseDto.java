@@ -22,6 +22,7 @@ public class AdmissionResponseDto {
     private String tenantStatus;
     private String aadhaarNo;
     private String mobileNumber;
+    private String parentContact;
     private String roomNo;
     private Integer roomRent;
     private Integer advancePaid;

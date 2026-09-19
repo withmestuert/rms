@@ -43,6 +43,15 @@ public class Room {
 
     private Boolean available;
 
+    @Column(name = "vacate_date")
+    private String vacateDate;
+
+    @Column(name = "vacating_resident")
+    private String vacatingResident;
+
+    @Column(name = "vacate_status")
+    private String vacateStatus;
+
     public Room(String roomNo, String floor, String roomType, Integer rentPerMonth, Integer occupancy, Boolean available) {
         this(roomNo, floor, roomType, rentPerMonth, occupancy, null, available);
     }

@@ -415,6 +415,7 @@ public class AdmissionService {
             dto.setAdvancePaid(t.getAdvancePaid());
             dto.setAdvancePaidStatus(t.getAdvancePaidStatus());
             dto.setTenantStatus(t.getStatus());
+            dto.setParentContact(t.getParentContact());
             if (t.getStandardRent() != null) {
                 dto.setRoomRent(t.getStandardRent());
             }
