@@ -33,8 +33,13 @@ public class LedgerController {
     }
 
     @GetMapping("/balance")
-    public ResponseEntity<Map<String, Long>> getRunningBalance() {
-        long balance = billingService.getLatestRunningBalance();
+    public ResponseEntity<Map<String, Long>> getRunningBalance(
+            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestParam(value = "propertyId", required = false) Long queryPropId) {
+        Long effectivePropId = queryPropId != null ? queryPropId : headerPropId;
+        long balance = effectivePropId != null
+                ? billingService.getLatestRunningBalance(effectivePropId)
+                : billingService.getLatestRunningBalance();
         return ResponseEntity.ok(Map.of("runningBalance", balance));
     }
 

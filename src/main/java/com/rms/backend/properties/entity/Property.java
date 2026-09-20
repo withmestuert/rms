@@ -54,7 +54,25 @@ public class Property {
     private String contactEmail;
 
     @Column(name = "status", nullable = false)
-    private String status; // ACTIVE, INACTIVE
+    private String status; // ACTIVE, INACTIVE, DELETED
+
+    @Column(name = "is_deleted", nullable = false, columnDefinition = "boolean default false")
+    private Boolean isDeleted = false;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @Column(name = "deleted_by")
+    private String deletedBy;
+
+    @Column(name = "deletion_reason")
+    private String deletionReason;
+
+    @Column(name = "ttl_expires_at")
+    private LocalDateTime ttlExpiresAt;
+
+    @Column(name = "archive_snapshot_id")
+    private Long archiveSnapshotId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -72,6 +90,9 @@ public class Property {
         }
         if (this.propertyType == null) {
             this.propertyType = "PG";
+        }
+        if (this.isDeleted == null) {
+            this.isDeleted = false;
         }
     }
 

@@ -109,7 +109,9 @@ public class BillingService {
 
     @Transactional
     public CycleGenerationResultDto generateCycleInvoices(CycleGenerationRequestDto dto) {
-        List<Tenant> tenants = tenantRepository.findAll();
+        List<Tenant> tenants = dto.getPropertyId() != null
+                ? tenantRepository.findActiveByPropertyId(dto.getPropertyId())
+                : tenantRepository.findAllActive();
         List<InvoiceResponseDto> generated = new ArrayList<>();
         int skippedCount = 0;
         long totalAmount = 0;
@@ -137,6 +139,7 @@ public class BillingService {
                     .propertyId(tenant.getPropertyId())
                     .monthYear(monthYear)
                     .amount(rentAmount)
+                    .paidAmount(0)
                     .dueDate(dueDate)
                     .status(InvoiceStatus.PENDING)
                     .createdAt(LocalDateTime.now())
@@ -166,6 +169,23 @@ public class BillingService {
             throw new DuplicateResourceException("Invoice " + invoice.getInvoiceNumber() + " is already marked as PAID");
         }
 
+        int currentPaid = invoice.getPaidAmount() != null ? invoice.getPaidAmount() : 0;
+        int outstanding = invoice.getAmount() - currentPaid;
+
+        if (outstanding <= 0) {
+            invoice.setStatus(InvoiceStatus.PAID);
+            Invoice saved = invoiceRepository.save(invoice);
+            return toInvoiceResponseDto(saved);
+        }
+
+        int paymentAmount = (dto.getAmount() != null && dto.getAmount() > 0)
+                ? dto.getAmount()
+                : outstanding;
+
+        if (paymentAmount > outstanding) {
+            throw new IllegalArgumentException("Payment amount (₹" + paymentAmount + ") cannot exceed outstanding balance (₹" + outstanding + ")");
+        }
+
         String paidDate = dto.getPaidOn() != null && !dto.getPaidOn().isBlank()
                 ? dto.getPaidOn().trim()
                 : LocalDate.now().toString();
@@ -174,25 +194,31 @@ public class BillingService {
                 ? dto.getTransactionRef().trim()
                 : "TXN-" + System.currentTimeMillis();
 
-        invoice.setStatus(InvoiceStatus.PAID);
+        int newPaid = currentPaid + paymentAmount;
+        invoice.setPaidAmount(newPaid);
+        if (newPaid >= invoice.getAmount()) {
+            invoice.setStatus(InvoiceStatus.PAID);
+        } else {
+            invoice.setStatus(InvoiceStatus.PARTIALLY_PAID);
+        }
         invoice.setPaidOn(paidDate);
         invoice.setPaymentMode(dto.getPaymentMode());
         invoice.setTransactionRef(txnRef);
 
         Invoice updatedInvoice = invoiceRepository.save(invoice);
 
-        // Record in ledger
-        long currentBalance = getLatestRunningBalance();
-        long newBalance = currentBalance + invoice.getAmount();
+        // Record in ledger with property isolation
+        long currentBalance = getLatestRunningBalance(invoice.getPropertyId());
+        long newBalance = currentBalance + paymentAmount;
 
         LedgerTransaction ledgerTxn = LedgerTransaction.builder()
                 .referenceNumber(txnRef)
                 .date(paidDate)
                 .type(TransactionType.CREDIT)
                 .accountHead("Rent Payment")
-                .description("Monthly Rent - Room " + invoice.getRoomNo() + " (" + invoice.getTenantName() + ")")
+                .description("Rent Payment (" + (invoice.getStatus() == InvoiceStatus.PAID ? "Full" : "Partial") + ") - Room " + invoice.getRoomNo() + " (" + invoice.getTenantName() + ")")
                 .tenantOrVendor(invoice.getTenantName())
-                .amount(invoice.getAmount())
+                .amount(paymentAmount)
                 .paymentMode(dto.getPaymentMode())
                 .propertyId(invoice.getPropertyId())
                 .runningBalance(newBalance)
@@ -200,7 +226,8 @@ public class BillingService {
                 .build();
 
         ledgerRepository.save(ledgerTxn);
-        log.info("Recorded payment for invoice {}. New ledger balance: ₹{}", invoice.getInvoiceNumber(), newBalance);
+        log.info("Recorded payment of ₹{} for invoice {}. Status: {}. Property {} ledger balance: ₹{}",
+                paymentAmount, invoice.getInvoiceNumber(), invoice.getStatus(), invoice.getPropertyId(), newBalance);
 
         return toInvoiceResponseDto(updatedInvoice);
     }
@@ -232,7 +259,7 @@ public class BillingService {
 
     @Transactional
     public LedgerTransactionResponseDto recordCustomTransaction(LedgerTransactionRequestDto dto) {
-        long currentBalance = getLatestRunningBalance();
+        long currentBalance = getLatestRunningBalance(dto.getPropertyId());
         long newBalance = dto.getType() == TransactionType.CREDIT
                 ? currentBalance + dto.getAmount()
                 : Math.max(0, currentBalance - dto.getAmount());
@@ -268,7 +295,14 @@ public class BillingService {
                 .orElse(0L);
     }
 
-
+    public long getLatestRunningBalance(Long propertyId) {
+        if (propertyId == null) {
+            return getLatestRunningBalance();
+        }
+        return ledgerRepository.findTopByPropertyIdOrderByCreatedAtDescIdDesc(propertyId)
+                .map(LedgerTransaction::getRunningBalance)
+                .orElse(0L);
+    }
 
     // =========================================================================
     // HELPERS & MAPPERS
@@ -283,6 +317,9 @@ public class BillingService {
     }
 
     private InvoiceResponseDto toInvoiceResponseDto(Invoice invoice) {
+        int paid = invoice.getPaidAmount() != null ? invoice.getPaidAmount() : 0;
+        int balance = Math.max(0, invoice.getAmount() - paid);
+
         return InvoiceResponseDto.builder()
                 .id(invoice.getId())
                 .invoiceNumber(invoice.getInvoiceNumber())
@@ -292,6 +329,8 @@ public class BillingService {
                 .propertyId(invoice.getPropertyId())
                 .monthYear(invoice.getMonthYear())
                 .amount(invoice.getAmount())
+                .paidAmount(paid)
+                .remainingBalance(balance)
                 .dueDate(invoice.getDueDate())
                 .status(invoice.getStatus())
                 .paidOn(invoice.getPaidOn())

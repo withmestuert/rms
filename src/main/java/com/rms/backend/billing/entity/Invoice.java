@@ -39,12 +39,16 @@ public class Invoice {
     @Column(name = "amount", nullable = false)
     private Integer amount;
 
+    @Column(name = "paid_amount", nullable = false)
+    @Builder.Default
+    private Integer paidAmount = 0;
+
     @Column(name = "due_date", nullable = false)
     private String dueDate; // YYYY-MM-DD
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private InvoiceStatus status; // PENDING, PAID, OVERDUE
+    private InvoiceStatus status; // PENDING, PARTIALLY_PAID, PAID, OVERDUE
 
     @Column(name = "paid_on")
     private String paidOn; // YYYY-MM-DD
@@ -65,6 +69,9 @@ public class Invoice {
         }
         if (status == null) {
             status = InvoiceStatus.PENDING;
+        }
+        if (paidAmount == null) {
+            paidAmount = 0;
         }
     }
 }

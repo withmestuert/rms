@@ -52,7 +52,13 @@ public class InvoiceController {
 
     @PostMapping("/generate-cycle")
     public ResponseEntity<CycleGenerationResultDto> generateCycleInvoices(
-            @Valid @RequestBody CycleGenerationRequestDto dto) {
+            @Valid @RequestBody CycleGenerationRequestDto dto,
+            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestParam(value = "propertyId", required = false) Long queryPropId) {
+        Long effectivePropId = queryPropId != null ? queryPropId : (headerPropId != null ? headerPropId : dto.getPropertyId());
+        if (effectivePropId != null) {
+            dto.setPropertyId(effectivePropId);
+        }
         CycleGenerationResultDto result = billingService.generateCycleInvoices(dto);
         return ResponseEntity.ok(result);
     }

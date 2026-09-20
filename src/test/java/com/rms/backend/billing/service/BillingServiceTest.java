@@ -165,7 +165,7 @@ class BillingServiceTest {
                 .dueDate("2024-11-05")
                 .build();
 
-        when(tenantRepository.findAll()).thenReturn(List.of(sampleTenant));
+        when(tenantRepository.findAllActive()).thenReturn(List.of(sampleTenant));
         when(invoiceRepository.existsByTenantUidAndMonthYear("TNT-101", "November 2024")).thenReturn(false);
         when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> {
             Invoice i = inv.getArgument(0);
@@ -202,6 +202,8 @@ class BillingServiceTest {
         assertEquals(InvoiceStatus.PAID, result.getStatus());
         assertEquals("UPI", result.getPaymentMode());
         assertEquals("UPI-998877", result.getTransactionRef());
+        assertEquals(8500, result.getPaidAmount());
+        assertEquals(0, result.getRemainingBalance());
 
         verify(invoiceRepository).save(any(Invoice.class));
         verify(ledgerRepository).save(argThat(txn ->
@@ -209,6 +211,49 @@ class BillingServiceTest {
                 txn.getAmount() == 8500 &&
                 txn.getRunningBalance() == 482150L + 8500
         ));
+    }
+
+    @Test
+    @DisplayName("Should record partial payment and update status to PARTIALLY_PAID")
+    void testRecordPartialPayment() {
+        RecordPaymentDto payReq = RecordPaymentDto.builder()
+                .paymentMode("UPI")
+                .transactionRef("UPI-PARTIAL-1")
+                .paidOn("2024-10-03")
+                .amount(3000)
+                .build();
+
+        when(invoiceRepository.findById(1L)).thenReturn(Optional.of(sampleInvoice));
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(ledgerRepository.findTopByOrderByCreatedAtDescIdDesc()).thenReturn(Optional.of(LedgerTransaction.builder().runningBalance(10000L).build()));
+        when(ledgerRepository.save(any(LedgerTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        InvoiceResponseDto result = billingService.recordPayment(1L, payReq);
+
+        assertNotNull(result);
+        assertEquals(InvoiceStatus.PARTIALLY_PAID, result.getStatus());
+        assertEquals(3000, result.getPaidAmount());
+        assertEquals(5500, result.getRemainingBalance());
+
+        verify(ledgerRepository).save(argThat(txn ->
+                txn.getType() == TransactionType.CREDIT &&
+                txn.getAmount() == 3000 &&
+                txn.getRunningBalance() == 13000L
+        ));
+    }
+
+    @Test
+    @DisplayName("Should reject payment exceeding outstanding balance")
+    void testRecordPayment_ExceedingAmount() {
+        RecordPaymentDto payReq = RecordPaymentDto.builder()
+                .paymentMode("UPI")
+                .amount(9000) // sampleInvoice amount is 8500
+                .build();
+
+        when(invoiceRepository.findById(1L)).thenReturn(Optional.of(sampleInvoice));
+
+        assertThrows(IllegalArgumentException.class, () -> billingService.recordPayment(1L, payReq));
+        verify(ledgerRepository, never()).save(any());
     }
 
     @Test

@@ -15,4 +15,6 @@ public class CycleGenerationRequestDto {
 
     @NotBlank(message = "Due date is required")
     private String dueDate; // YYYY-MM-DD
+
+    private Long propertyId;
 }

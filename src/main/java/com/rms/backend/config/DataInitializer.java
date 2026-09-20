@@ -33,6 +33,18 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         try {
+            jdbcTemplate.execute("ALTER TABLE properties ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE");
+            jdbcTemplate.execute("ALTER TABLE properties ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP");
+            jdbcTemplate.execute("ALTER TABLE properties ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(255)");
+            jdbcTemplate.execute("ALTER TABLE properties ADD COLUMN IF NOT EXISTS deletion_reason VARCHAR(500)");
+            jdbcTemplate.execute("ALTER TABLE properties ADD COLUMN IF NOT EXISTS ttl_expires_at TIMESTAMP");
+            jdbcTemplate.execute("ALTER TABLE properties ADD COLUMN IF NOT EXISTS archive_snapshot_id BIGINT");
+            log.info("Successfully applied and verified properties soft-delete schema migrations.");
+        } catch (Exception e) {
+            log.warn("Could not apply properties soft-delete schema migrations: {}", e.getMessage());
+        }
+
+        try {
             jdbcTemplate.execute("ALTER TABLE admissions DROP CONSTRAINT IF EXISTS admissions_status_check");
             jdbcTemplate.execute("ALTER TABLE admissions ADD CONSTRAINT admissions_status_check CHECK (status IN ('PENDING', 'PAID', 'CANCELLED', 'VACATED'))");
             log.info("Successfully updated admissions_status_check constraint to support VACATED status.");
@@ -45,6 +57,14 @@ public class DataInitializer implements CommandLineRunner {
             log.info("Successfully aligned active tenants status with active admissions.");
         } catch (Exception e) {
             log.warn("Could not align tenant statuses: {}", e.getMessage());
+        }
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS paid_amount INTEGER NOT NULL DEFAULT 0");
+            jdbcTemplate.execute("ALTER TABLE invoices DROP CONSTRAINT IF EXISTS invoices_status_check");
+            log.info("Successfully applied and verified invoices paid_amount and status constraints.");
+        } catch (Exception e) {
+            log.warn("Could not apply invoices schema migrations: {}", e.getMessage());
         }
         log.info("RMS Backend initialized with zero mock data. Manual mode enabled.");
     }
