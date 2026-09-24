@@ -104,9 +104,7 @@ public class AdmissionService {
     @Transactional
     public AdmissionResponseDto confirmAdmission(String admissionNumber) {
 
-        Admission admission = admissionRepository.findByAdmissionNumber(admissionNumber)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Admission not found: " + admissionNumber));
+        Admission admission = findAdmissionByIdOrNumber(admissionNumber);
 
         if (admission.getStatus() == AdmissionStatus.PAID) {
             throw new DuplicateResourceException("Admission is already confirmed and PAID");
@@ -129,6 +127,7 @@ public class AdmissionService {
         // Update tenant advance payment status
         Tenant tenant = admission.getTenant();
         tenant.setAdvancePaidStatus(AdvancePaidStatus.PAID);
+        tenant.setStatus("ACTIVE");
         tenantRepository.save(tenant);
 
         // Move slot from reserved -> current occupancy
@@ -147,9 +146,7 @@ public class AdmissionService {
     @Transactional
     public void cancelPendingAdmission(String admissionNumber) {
 
-        Admission admission = admissionRepository.findByAdmissionNumber(admissionNumber)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Admission not found: " + admissionNumber));
+        Admission admission = findAdmissionByIdOrNumber(admissionNumber);
 
         if (admission.getStatus() == AdmissionStatus.PAID) {
             throw new DuplicateResourceException(
@@ -177,7 +174,7 @@ public class AdmissionService {
 
         // Delete tenant only if they have NO other admission history
         long remainingAdmissions = admissionRepository.countByTenant_UidAndAdmissionNumberNot(
-                tenant.getUid(), admissionNumber);
+                tenant.getUid(), admission.getAdmissionNumber());
         if (remainingAdmissions == 0) {
             tenantRepository.delete(tenant);
         }
@@ -208,10 +205,25 @@ public class AdmissionService {
 
     @Transactional(readOnly = true)
     public AdmissionResponseDto getAdmissionByNumber(String admissionNumber) {
-        Admission admission = admissionRepository.findByAdmissionNumber(admissionNumber)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Admission not found: " + admissionNumber));
+        Admission admission = findAdmissionByIdOrNumber(admissionNumber);
         return toResponseDto(admission);
+    }
+
+    public Admission findAdmissionByIdOrNumber(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            throw new ResourceNotFoundException("Admission identifier cannot be empty");
+        }
+        Optional<Admission> byNumber = admissionRepository.findByAdmissionNumber(identifier.trim());
+        if (byNumber.isPresent()) {
+            return byNumber.get();
+        }
+        try {
+            Long id = Long.parseLong(identifier.trim());
+            return admissionRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Admission not found with ID or number: " + identifier));
+        } catch (NumberFormatException e) {
+            throw new ResourceNotFoundException("Admission not found: " + identifier);
+        }
     }
 
     @Transactional(readOnly = true)
@@ -327,6 +339,7 @@ public class AdmissionService {
                 if (dto.getAdvancePaid() != null) {
                     tenant.setAdvancePaid(dto.getAdvancePaid());
                 }
+                tenant.setStatus("ACTIVE");
                 tenant.setAdvancePaidStatus(AdvancePaidStatus.PENDING);
                 Long propId = dto.getPropertyId();
                 if (propId != null) {
@@ -351,6 +364,7 @@ public class AdmissionService {
         tenant.setRoomNo(dto.getRoomNo());
         tenant.setAdvancePaid(dto.getAdvancePaid() != null ? dto.getAdvancePaid() : 0);
         tenant.setAdvancePaidStatus(AdvancePaidStatus.PENDING);
+        tenant.setStatus("PENDING");
         tenant.setStandardRent(dto.getStandardRent() != null ? dto.getStandardRent() : 0);
 
         // Inherit propertyId from room

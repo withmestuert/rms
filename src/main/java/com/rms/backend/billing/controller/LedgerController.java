@@ -55,4 +55,16 @@ public class LedgerController {
         LedgerTransactionResponseDto created = billingService.recordCustomTransaction(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
+
+    @GetMapping("/tenant/{tenantUid}")
+    public ResponseEntity<List<LedgerTransactionResponseDto>> getTransactionsByTenant(@PathVariable String tenantUid) {
+        List<LedgerTransactionResponseDto> txns = billingService.getTransactionsByTenant(tenantUid);
+        return ResponseEntity.ok(txns);
+    }
+
+    @GetMapping("/invoice/{invoiceId}")
+    public ResponseEntity<List<LedgerTransactionResponseDto>> getTransactionsByInvoice(@PathVariable Long invoiceId) {
+        List<LedgerTransactionResponseDto> txns = billingService.getTransactionsByInvoice(invoiceId);
+        return ResponseEntity.ok(txns);
+    }
 }

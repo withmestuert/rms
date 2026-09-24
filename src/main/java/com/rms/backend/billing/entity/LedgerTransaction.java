@@ -49,6 +49,15 @@ public class LedgerTransaction {
     @Column(name = "property_id")
     private Long propertyId;
 
+    @Column(name = "tenant_uid")
+    private String tenantUid;
+
+    @Column(name = "invoice_id")
+    private Long invoiceId;
+
+    @Column(name = "payment_id")
+    private Long paymentId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

@@ -23,5 +23,7 @@ public interface VacateRequestRepository extends JpaRepository<VacateRequest, Lo
 
     Optional<VacateRequest> findByRequestId(String requestId);
 
+    boolean existsByRequestId(String requestId);
+
     Optional<VacateRequest> findTopByOrderByIdDesc();
 }

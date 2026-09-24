@@ -99,4 +99,24 @@ class LedgerControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.referenceNumber").value("TXN-12345678"));
     }
+
+    @Test
+    @DisplayName("GET /api/ledger/tenant/{tenantUid} - should return 200 with tenant transactions")
+    void testGetTransactionsByTenant() throws Exception {
+        when(billingService.getTransactionsByTenant("TNT-101")).thenReturn(List.of(sampleTxn));
+
+        mockMvc.perform(get("/api/ledger/tenant/TNT-101"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].referenceNumber").value("TXN-12345678"));
+    }
+
+    @Test
+    @DisplayName("GET /api/ledger/invoice/{invoiceId} - should return 200 with invoice transactions")
+    void testGetTransactionsByInvoice() throws Exception {
+        when(billingService.getTransactionsByInvoice(10L)).thenReturn(List.of(sampleTxn));
+
+        mockMvc.perform(get("/api/ledger/invoice/10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].referenceNumber").value("TXN-12345678"));
+    }
 }
