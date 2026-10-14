@@ -35,4 +35,6 @@ public class AdmissionResponseDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Long propertyId;
+    private Long bedId;
+    private String bedNumber;
 }

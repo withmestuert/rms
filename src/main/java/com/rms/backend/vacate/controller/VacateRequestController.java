@@ -21,7 +21,14 @@ public class VacateRequestController {
     private final VacateRequestService vacateRequestService;
 
     @PostMapping
-    public ResponseEntity<VacateResponseDto> submitVacateRequest(@RequestBody VacateRequestDto dto) {
+    public ResponseEntity<VacateResponseDto> submitVacateRequest(
+            @RequestBody VacateRequestDto dto,
+            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestParam(value = "propertyId", required = false) Long queryPropId) {
+        Long effectivePropId = queryPropId != null ? queryPropId : (headerPropId != null ? headerPropId : dto.getPropertyId());
+        if (effectivePropId != null) {
+            dto.setPropertyId(effectivePropId);
+        }
         VacateResponseDto response = vacateRequestService.submitVacateRequest(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -29,8 +36,10 @@ public class VacateRequestController {
     @GetMapping
     public ResponseEntity<List<VacateResponseDto>> getAllVacateRequests(
             @RequestParam(required = false) VacateStatus status,
-            @RequestParam(required = false) Long propertyId) {
-        return ResponseEntity.ok(vacateRequestService.getAllVacateRequests(status, propertyId));
+            @RequestHeader(value = "X-Property-Id", required = false) Long headerPropId,
+            @RequestParam(value = "propertyId", required = false) Long queryPropId) {
+        Long effectivePropId = queryPropId != null ? queryPropId : headerPropId;
+        return ResponseEntity.ok(vacateRequestService.getAllVacateRequests(status, effectivePropId));
     }
 
     @GetMapping("/{id}")

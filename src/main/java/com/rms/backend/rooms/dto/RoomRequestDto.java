@@ -1,10 +1,10 @@
 package com.rms.backend.rooms.dto;
+
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 public class RoomRequestDto {
-
 
     @NotBlank(message = "Room number is required")
     private String roomNo;
@@ -23,10 +23,11 @@ public class RoomRequestDto {
     @Min(value = 1, message = "Occupancy must be at least 1")
     private Integer occupancy;
 
-    @NotNull(message = "Availability is required")
-    private Boolean available;
+    private Boolean available = true;
 
     private Long propertyId;
+    private Long blockId;
+    private Long floorId;
 
     // getters and setters
 
@@ -38,6 +39,22 @@ public class RoomRequestDto {
         this.propertyId = propertyId;
     }
 
+    public Long getBlockId() {
+        return blockId;
+    }
+
+    public void setBlockId(Long blockId) {
+        this.blockId = blockId;
+    }
+
+    public Long getFloorId() {
+        return floorId;
+    }
+
+    public void setFloorId(Long floorId) {
+        this.floorId = floorId;
+    }
+
     public String getRoomNo() {
         return roomNo;
     }
@@ -47,11 +64,11 @@ public class RoomRequestDto {
     }
 
     public Boolean getAvailable() {
-        return available;
+        return available != null ? available : true;
     }
 
     public void setAvailable(Boolean available) {
-        this.available = available;
+        this.available = available != null ? available : true;
     }
 
     public Integer getOccupancy() {

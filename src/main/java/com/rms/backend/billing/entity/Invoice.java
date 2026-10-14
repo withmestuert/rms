@@ -6,9 +6,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "invoices", uniqueConstraints = {
-    @UniqueConstraint(name = "uk_invoices_tenant_month", columnNames = {"tenant_uid", "month_year"})
-})
+@Table(name = "invoices")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -20,7 +18,7 @@ public class Invoice {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "invoice_number", unique = true, nullable = false)
+    @Column(name = "invoice_number", nullable = false)
     private String invoiceNumber;
 
     @Column(name = "tenant_uid", nullable = false)

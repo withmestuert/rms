@@ -17,6 +17,7 @@ public class PaymentResponseDto {
     private String invoiceNumber;
     private String tenantUid;
     private String tenantName;
+    private String roomNo;
     private Integer amount;
     private String paymentMode;
     private String transactionReference;

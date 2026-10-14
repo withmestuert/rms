@@ -56,6 +56,11 @@ public class RoomController {
         return roomService.getRoomByRoomNo(roomNo);
     }
 
+    @GetMapping("/{roomNo}/beds")
+    public List<com.rms.backend.rooms.entity.Bed> getBedsForRoom(@PathVariable String roomNo) {
+        return roomService.getBedsForRoom(roomNo);
+    }
+
     /*@PutMapping("/{roomNo}")
     public Room updateRoom(
             @PathVariable String roomNo,

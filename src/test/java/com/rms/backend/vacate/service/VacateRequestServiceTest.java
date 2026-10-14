@@ -37,6 +37,12 @@ class VacateRequestServiceTest {
     @Mock
     private RoomRepository roomRepository;
 
+    @Mock
+    private com.rms.backend.rooms.repository.BedRepository bedRepository;
+
+    @Mock
+    private com.rms.backend.admissions.repository.AdmissionRepository admissionRepository;
+
     @InjectMocks
     private VacateRequestService vacateService;
 

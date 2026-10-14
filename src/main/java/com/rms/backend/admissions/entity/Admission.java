@@ -37,6 +37,9 @@ public class Admission {
     @Column(name = "property_id")
     private Long propertyId;
 
+    @Column(name = "bed_id")
+    private Long bedId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private AdmissionStatus status;

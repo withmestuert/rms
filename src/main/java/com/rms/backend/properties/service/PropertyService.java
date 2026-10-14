@@ -6,6 +6,8 @@ import com.rms.backend.properties.dto.PropertyArchiveSnapshotDto;
 import com.rms.backend.properties.dto.PropertyRequestDto;
 import com.rms.backend.properties.dto.PropertyResponseDto;
 import com.rms.backend.properties.dto.PropertySoftDeleteRequestDto;
+import com.rms.backend.properties.entity.Block;
+import com.rms.backend.properties.entity.Floor;
 import com.rms.backend.properties.entity.Property;
 import com.rms.backend.properties.entity.PropertyArchiveSnapshot;
 import com.rms.backend.properties.repository.PropertyArchiveSnapshotRepository;
@@ -20,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,22 +32,28 @@ public class PropertyService {
     private final PropertyArchiveSnapshotRepository snapshotRepository;
     private final RoomRepository roomRepository;
     private final TenantRepository tenantRepository;
+    private final com.rms.backend.properties.repository.BlockRepository blockRepository;
+    private final com.rms.backend.properties.repository.FloorRepository floorRepository;
 
-    @Autowired(required = false)
+    @Autowired
     public PropertyService(
             PropertyRepository propertyRepository,
             @Autowired(required = false) PropertyArchiveSnapshotRepository snapshotRepository,
             @Autowired(required = false) RoomRepository roomRepository,
-            @Autowired(required = false) TenantRepository tenantRepository
+            @Autowired(required = false) TenantRepository tenantRepository,
+            @Autowired(required = false) com.rms.backend.properties.repository.BlockRepository blockRepository,
+            @Autowired(required = false) com.rms.backend.properties.repository.FloorRepository floorRepository
     ) {
         this.propertyRepository = propertyRepository;
         this.snapshotRepository = snapshotRepository;
         this.roomRepository = roomRepository;
         this.tenantRepository = tenantRepository;
+        this.blockRepository = blockRepository;
+        this.floorRepository = floorRepository;
     }
 
     public PropertyService(PropertyRepository propertyRepository) {
-        this(propertyRepository, null, null, null);
+        this(propertyRepository, null, null, null, null, null);
     }
 
     public List<PropertyResponseDto> getAllProperties() {
@@ -92,7 +100,64 @@ public class PropertyService {
         mapDtoToEntity(dto, property);
 
         Property saved = propertyRepository.save(property);
+        initializePropertyHierarchy(saved.getId());
         return toResponseDto(saved);
+    }
+
+    @Transactional
+    public Map<String, Object> initializePropertyHierarchy(Long propertyId) {
+        if (blockRepository == null || floorRepository == null) {
+            return Map.of("status", "skipped");
+        }
+        Property property = propertyRepository.findById(propertyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Property not found with ID: " + propertyId));
+
+        List<Block> blocks = blockRepository.findByPropertyId(propertyId);
+        Block defaultBlock;
+        if (blocks.isEmpty()) {
+            String code = property.getCode() != null && !property.getCode().isBlank()
+                    ? "BLK-" + property.getCode()
+                    : "BLK-" + propertyId;
+            defaultBlock = Block.builder()
+                    .propertyId(propertyId)
+                    .name("Main Block")
+                    .code(code)
+                    .status("ACTIVE")
+                    .build();
+            defaultBlock = blockRepository.save(defaultBlock);
+            blocks.add(defaultBlock);
+        } else {
+            defaultBlock = blocks.get(0);
+        }
+
+        int floorCount = (property.getTotalFloors() != null && property.getTotalFloors() > 0)
+                ? property.getTotalFloors()
+                : 3;
+
+        List<Floor> existingFloors = floorRepository.findByBlockId(defaultBlock.getId());
+        List<Floor> createdFloors = new ArrayList<>(existingFloors);
+
+        for (int i = 1; i <= floorCount; i++) {
+            final int floorNum = i;
+            boolean exists = existingFloors.stream().anyMatch(f -> f.getFloorNumber() != null && f.getFloorNumber() == floorNum);
+            if (!exists) {
+                Floor f = Floor.builder()
+                        .blockId(defaultBlock.getId())
+                        .floorNumber(floorNum)
+                        .name("Floor " + floorNum)
+                        .status("ACTIVE")
+                        .build();
+                createdFloors.add(floorRepository.save(f));
+            }
+        }
+        createdFloors.sort(Comparator.comparingInt(Floor::getFloorNumber));
+
+        return Map.of(
+                "propertyId", propertyId,
+                "propertyName", property.getName(),
+                "block", defaultBlock,
+                "floors", createdFloors
+        );
     }
 
     @Transactional

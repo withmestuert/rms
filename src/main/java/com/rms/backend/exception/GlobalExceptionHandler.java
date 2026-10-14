@@ -63,6 +63,16 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<String> handleIllegalStateException(
+            IllegalStateException exception) {
+
+        return new ResponseEntity<>(
+                exception.getMessage(),
+                HttpStatus.CONFLICT
+        );
+    }
+
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<String> handleDataIntegrityViolationException(
             org.springframework.dao.DataIntegrityViolationException exception) {

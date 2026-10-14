@@ -17,11 +17,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+
+import com.rms.backend.rooms.entity.Bed;
+import com.rms.backend.rooms.repository.BedRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +37,7 @@ public class BillingService {
     private final LedgerTransactionRepository ledgerRepository;
     private final TenantRepository tenantRepository;
     private final PaymentRepository paymentRepository;
+    private final BedRepository bedRepository;
 
     private static final AtomicLong INVOICE_SEQ = new AtomicLong(1001);
     private static final AtomicLong PAYMENT_SEQ = new AtomicLong(1001);
@@ -39,6 +45,150 @@ public class BillingService {
     // =========================================================================
     // INVOICES
     // =========================================================================
+
+    @Transactional(readOnly = true)
+    public List<TenantMonthlyPayItemDto> getTenantMonthlyPayList(Long propertyId, String tenantUid, String search, String monthYear) {
+        List<Invoice> invoices = propertyId != null
+                ? invoiceRepository.findByPropertyId(propertyId)
+                : invoiceRepository.findAll();
+
+        if (tenantUid != null && !tenantUid.isBlank()) {
+            String uid = tenantUid.trim();
+            invoices = invoices.stream().filter(i -> uid.equalsIgnoreCase(i.getTenantUid())).toList();
+        }
+
+        if (monthYear != null && !monthYear.isBlank()) {
+            String m = monthYear.trim();
+            invoices = invoices.stream().filter(i -> m.equalsIgnoreCase(i.getMonthYear())).toList();
+        }
+
+        if (search != null && !search.isBlank()) {
+            String q = search.trim().toLowerCase();
+            invoices = invoices.stream().filter(i ->
+                    (i.getTenantName() != null && i.getTenantName().toLowerCase().contains(q)) ||
+                    (i.getRoomNo() != null && i.getRoomNo().toLowerCase().contains(q)) ||
+                    (i.getTenantUid() != null && i.getTenantUid().toLowerCase().contains(q))
+            ).toList();
+        }
+
+        Map<String, Tenant> tenantMap = tenantRepository.findAll().stream()
+                .collect(Collectors.toMap(Tenant::getUid, t -> t, (t1, t2) -> t1));
+
+        Map<Long, Bed> bedMap = bedRepository != null
+                ? bedRepository.findAll().stream().collect(Collectors.toMap(Bed::getId, b -> b, (b1, b2) -> b1))
+                : Collections.emptyMap();
+
+        List<TenantMonthlyPayItemDto> result = new ArrayList<>();
+
+        for (Invoice inv : invoices) {
+            int amount = inv.getAmount() != null ? inv.getAmount() : 0;
+            int paid = inv.getPaidAmount() != null ? inv.getPaidAmount() : 0;
+            int pending = Math.max(0, amount - paid);
+
+            Tenant t = tenantMap.get(inv.getTenantUid());
+            String mobile = t != null && t.getMobileNumber() != null ? t.getMobileNumber() : "";
+            String bedNum = "-";
+            if (t != null && t.getBedId() != null && bedMap.containsKey(t.getBedId())) {
+                bedNum = bedMap.get(t.getBedId()).getBedNumber();
+            }
+
+            // Determine payment mode and UPI details
+            String mode = inv.getPaymentMode() != null && !inv.getPaymentMode().isBlank()
+                    ? inv.getPaymentMode().trim()
+                    : (paid > 0 ? "Cash" : "-");
+
+            String upiDetails = null;
+            String txnRef = inv.getTransactionRef();
+
+            // Look up payments for this invoice to resolve UPI transaction reference / UTR
+            List<Payment> invPayments = paymentRepository.findByInvoiceId(inv.getId());
+            for (Payment p : invPayments) {
+                if (p.getPaymentMode() != null && p.getPaymentMode().toUpperCase().contains("UPI")) {
+                    mode = "UPI";
+                    if (p.getTransactionReference() != null && !p.getTransactionReference().isBlank()) {
+                        upiDetails = p.getTransactionReference().trim();
+                        txnRef = upiDetails;
+                        break;
+                    }
+                }
+            }
+
+            if (upiDetails == null && mode.toUpperCase().contains("UPI") && txnRef != null && !txnRef.isBlank()) {
+                upiDetails = txnRef.trim();
+            }
+
+            String paidOn = inv.getPaidOn() != null && !inv.getPaidOn().isBlank()
+                    ? inv.getPaidOn().trim()
+                    : (paid >= amount && inv.getCreatedAt() != null ? inv.getCreatedAt().toLocalDate().toString() : "-");
+
+            result.add(TenantMonthlyPayItemDto.builder()
+                    .id(inv.getId())
+                    .invoiceNumber(inv.getInvoiceNumber())
+                    .tenantUid(inv.getTenantUid())
+                    .tenantName(inv.getTenantName())
+                    .roomNo(inv.getRoomNo())
+                    .bedNumber(bedNum)
+                    .mobileNumber(mobile)
+                    .monthYear(inv.getMonthYear())
+                    .billedAmount(amount)
+                    .paidAmount(paid)
+                    .pendingAmount(pending)
+                    .paidOn(paidOn)
+                    .paymentMode(mode)
+                    .upiDetails(upiDetails)
+                    .transactionRef(txnRef)
+                    .status(inv.getStatus() != null ? inv.getStatus().name() : "PENDING")
+                    .dueDate(inv.getDueDate())
+                    .build());
+        }
+
+        // Sort by tenantName asc, then id desc
+        result.sort((a, b) -> {
+            int nameComp = a.getTenantName() != null && b.getTenantName() != null
+                    ? a.getTenantName().compareToIgnoreCase(b.getTenantName())
+                    : 0;
+            if (nameComp != 0) return nameComp;
+            return Long.compare(b.getId() != null ? b.getId() : 0, a.getId() != null ? a.getId() : 0);
+        });
+
+        return result;
+    }
+
+    public static java.time.YearMonth parseYearMonth(String monthYear) {
+        if (monthYear == null || monthYear.isBlank()) return null;
+        try {
+            if (monthYear.matches("\\d{4}-\\d{2}")) {
+                return java.time.YearMonth.parse(monthYear);
+            }
+            return java.time.YearMonth.parse(monthYear.trim(), java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.ENGLISH));
+        } catch (Exception e) {
+            try {
+                return java.time.YearMonth.parse(monthYear.trim(), java.time.format.DateTimeFormatter.ofPattern("MMM yyyy", java.util.Locale.ENGLISH));
+            } catch (Exception ignored) {
+                return null;
+            }
+        }
+    }
+
+    @Transactional
+    public void ensureMonthlyPartition(LocalDate targetDate) {
+        try {
+            invoiceRepository.ensureMonthlyPartition(targetDate);
+            log.info("Ensured partition exists for target date: {}", targetDate);
+        } catch (Exception e) {
+            log.warn("Could not invoke create_invoice_monthly_partition procedure: {}", e.getMessage());
+        }
+    }
+
+    @Transactional
+    public void autoProvisionPartitions(int monthsAhead) {
+        try {
+            invoiceRepository.autoProvisionPartitions(monthsAhead);
+            log.info("Auto-provisioned monthly partitions {} months ahead", monthsAhead);
+        } catch (Exception e) {
+            log.warn("Could not invoke auto_provision_invoice_partitions procedure: {}", e.getMessage());
+        }
+    }
 
     @Transactional(readOnly = true)
     public List<InvoiceResponseDto> getAllInvoices(String monthYear, InvoiceStatus status) {
@@ -66,6 +216,23 @@ public class BillingService {
             invoices = invoiceRepository.findAll();
         }
         return invoices.stream().map(this::toInvoiceResponseDto).collect(Collectors.toList());
+    }
+
+    /**
+     * Partition-pruned invoice retrieval directly by monthly date range.
+     */
+    @Transactional(readOnly = true)
+    public List<InvoiceResponseDto> getInvoicesByPartitionPruning(String monthYear, Long propertyId) {
+        java.time.YearMonth ym = (monthYear != null && !monthYear.isBlank()) ? parseYearMonth(monthYear) : null;
+        if (ym != null) {
+            LocalDateTime startOfMonth = ym.atDay(1).atStartOfDay();
+            LocalDateTime endOfMonth = ym.plusMonths(1).atDay(1).atStartOfDay();
+            List<Invoice> list = propertyId != null
+                    ? invoiceRepository.findByPropertyIdAndPartitionDateRange(propertyId, startOfMonth, endOfMonth)
+                    : invoiceRepository.findByPartitionDateRange(startOfMonth, endOfMonth);
+            return list.stream().map(this::toInvoiceResponseDto).collect(Collectors.toList());
+        }
+        return getAllInvoices(monthYear, null, propertyId);
     }
 
     @Transactional(readOnly = true)
@@ -443,11 +610,12 @@ public class BillingService {
         if (cleanMonth.length() > 6) {
             cleanMonth = cleanMonth.substring(0, 6);
         }
-        return "INV-" + cleanMonth + "-" + INVOICE_SEQ.getAndIncrement();
+        return "INV-" + cleanMonth + "-" + (System.currentTimeMillis() % 1000000L) + "-" + INVOICE_SEQ.getAndIncrement();
     }
 
     private String generatePaymentReference() {
-        return "PAY-" + LocalDate.now().getYear() + "-" + PAYMENT_SEQ.getAndIncrement();
+        long epoch = System.currentTimeMillis() / 1000L;
+        return "PAY-" + LocalDate.now().getYear() + "-" + epoch + "-" + PAYMENT_SEQ.getAndIncrement();
     }
 
     private InvoiceResponseDto toInvoiceResponseDto(Invoice invoice) {
@@ -474,13 +642,14 @@ public class BillingService {
                 .build();
     }
 
-    private PaymentResponseDto toPaymentResponseDto(Payment payment, Invoice invoice) {
+    public PaymentResponseDto toPaymentResponseDto(Payment payment, Invoice invoice) {
         int total = invoice != null && invoice.getAmount() != null ? invoice.getAmount() : payment.getAmount();
         int paid = invoice != null && invoice.getPaidAmount() != null ? invoice.getPaidAmount() : payment.getAmount();
         int remaining = Math.max(0, total - paid);
         InvoiceStatus invStatus = invoice != null ? invoice.getStatus() : InvoiceStatus.PAID;
         String invNum = invoice != null ? invoice.getInvoiceNumber() : "";
         String tName = invoice != null ? invoice.getTenantName() : "";
+        String roomNo = invoice != null ? invoice.getRoomNo() : "";
 
         return PaymentResponseDto.builder()
                 .id(payment.getId())
@@ -489,6 +658,7 @@ public class BillingService {
                 .invoiceNumber(invNum)
                 .tenantUid(payment.getTenantUid())
                 .tenantName(tName)
+                .roomNo(roomNo)
                 .amount(payment.getAmount())
                 .paymentMode(payment.getPaymentMode())
                 .transactionReference(payment.getTransactionReference())

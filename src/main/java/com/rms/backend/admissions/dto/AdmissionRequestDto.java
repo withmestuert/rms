@@ -45,4 +45,6 @@ public class AdmissionRequestDto {
     private String remarks;
 
     private Long propertyId;
+
+    private Long bedId;
 }

@@ -38,6 +38,12 @@ public class Room {
     @ColumnDefault("0")
     private Integer reservedCapacity;
 
+    @Column(name = "id", insertable = false, updatable = false)
+    private Long id;
+
+    @Column(name = "floor_id")
+    private Long floorId;
+
     @Column(name = "property_id")
     private Long propertyId;
 

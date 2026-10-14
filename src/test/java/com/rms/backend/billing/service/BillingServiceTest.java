@@ -41,6 +41,9 @@ class BillingServiceTest {
     @Mock
     private PaymentRepository paymentRepository;
 
+    @Mock
+    private com.rms.backend.rooms.repository.BedRepository bedRepository;
+
     @InjectMocks
     private BillingService billingService;
 

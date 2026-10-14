@@ -34,6 +34,9 @@ class InvoiceControllerTest {
     @Mock
     private BillingService billingService;
 
+    @Mock
+    private com.rms.backend.billing.service.AutoRentInvoiceScheduler autoRentInvoiceScheduler;
+
     @InjectMocks
     private InvoiceController invoiceController;
 

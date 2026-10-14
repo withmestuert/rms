@@ -1,5 +1,8 @@
 package com.rms.backend.vacate.service;
 
+import com.rms.backend.admissions.entity.Admission;
+import com.rms.backend.admissions.entity.AdmissionStatus;
+import com.rms.backend.admissions.repository.AdmissionRepository;
 import com.rms.backend.exception.ResourceNotFoundException;
 import com.rms.backend.rooms.entity.Room;
 import com.rms.backend.rooms.repository.RoomRepository;
@@ -31,6 +34,8 @@ public class VacateRequestService {
     private final VacateRequestRepository vacateRepository;
     private final TenantRepository tenantRepository;
     private final RoomRepository roomRepository;
+    private final com.rms.backend.rooms.repository.BedRepository bedRepository;
+    private final AdmissionRepository admissionRepository;
 
     @Transactional
     public VacateResponseDto submitVacateRequest(VacateRequestDto dto) {
@@ -270,13 +275,30 @@ public class VacateRequestService {
         v.setStatus(VacateStatus.COMPLETED);
         v.setUpdatedAt(LocalDateTime.now());
 
-        // 1. Mark tenant INACTIVE
+        // 1. Mark tenant INACTIVE and release physical bed
         if (v.getTenantUid() != null) {
             tenantRepository.findById(v.getTenantUid()).ifPresent(t -> {
                 t.setStatus("INACTIVE");
+                if (t.getBedId() != null) {
+                    bedRepository.findById(t.getBedId()).ifPresent(b -> {
+                        b.setStatus("AVAILABLE");
+                        bedRepository.save(b);
+                    });
+                    t.setBedId(null);
+                }
                 tenantRepository.save(t);
-                log.info("Tenant {} marked INACTIVE upon vacate completion", t.getUid());
+                log.info("Tenant {} marked INACTIVE and bed released upon vacate completion", t.getUid());
             });
+
+            // Mark any active admissions for this tenant as VACATED
+            List<Admission> activeAdmissions = admissionRepository.findByTenant_Uid(v.getTenantUid()).stream()
+                    .filter(adm -> adm.getStatus() == AdmissionStatus.PENDING || adm.getStatus() == AdmissionStatus.PAID)
+                    .toList();
+            for (Admission adm : activeAdmissions) {
+                adm.setStatus(AdmissionStatus.VACATED);
+                adm.setVacatedOn(LocalDate.now());
+                admissionRepository.save(adm);
+            }
         }
 
         // 2. Clear room vacate status and adjust occupancy

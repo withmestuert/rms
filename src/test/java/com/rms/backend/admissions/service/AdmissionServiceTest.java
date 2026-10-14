@@ -42,6 +42,9 @@ class AdmissionServiceTest {
     @Mock
     private TenantRepository tenantRepository;
 
+    @Mock
+    private com.rms.backend.rooms.repository.BedRepository bedRepository;
+
     @InjectMocks
     private AdmissionService admissionService;
 

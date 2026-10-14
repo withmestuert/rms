@@ -8,7 +8,9 @@ import com.rms.backend.admissions.entity.AdmissionStatus;
 import com.rms.backend.admissions.repository.AdmissionRepository;
 import com.rms.backend.exception.DuplicateResourceException;
 import com.rms.backend.exception.ResourceNotFoundException;
+import com.rms.backend.rooms.entity.Bed;
 import com.rms.backend.rooms.entity.Room;
+import com.rms.backend.rooms.repository.BedRepository;
 import com.rms.backend.rooms.repository.RoomRepository;
 import com.rms.backend.tenants.entity.AdvancePaidStatus;
 import com.rms.backend.tenants.entity.Tenant;
@@ -29,13 +31,16 @@ public class AdmissionService {
     private final AdmissionRepository admissionRepository;
     private final RoomRepository roomRepository;
     private final TenantRepository tenantRepository;
+    private final BedRepository bedRepository;
 
     public AdmissionService(AdmissionRepository admissionRepository,
                             RoomRepository roomRepository,
-                            TenantRepository tenantRepository) {
+                            TenantRepository tenantRepository,
+                            BedRepository bedRepository) {
         this.admissionRepository = admissionRepository;
         this.roomRepository = roomRepository;
         this.tenantRepository = tenantRepository;
+        this.bedRepository = bedRepository;
     }
 
     // -------------------------------------------------------------------------
@@ -70,11 +75,32 @@ public class AdmissionService {
         // 5. Generate a unique admission number
         String admissionNumber = generateAdmissionNumber();
 
+        // 5b. Resolve and reserve physical Bed
+        Bed allocatedBed = null;
+        if (dto.getBedId() != null) {
+            allocatedBed = bedRepository.findById(dto.getBedId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Bed not found with ID: " + dto.getBedId()));
+            if (!"AVAILABLE".equalsIgnoreCase(allocatedBed.getStatus())) {
+                throw new DuplicateResourceException("Bed " + allocatedBed.getBedNumber() + " is currently " + allocatedBed.getStatus() + " and cannot be reserved.");
+            }
+        } else if (room.getId() != null) {
+            allocatedBed = bedRepository.findFirstByRoomIdAndStatusOrderByBedNumberAsc(room.getId(), "AVAILABLE")
+                    .orElse(null);
+        }
+
+        if (allocatedBed != null) {
+            allocatedBed.setStatus("RESERVED");
+            bedRepository.save(allocatedBed);
+        }
+
         // 6. Build and persist the admission
         Admission admission = new Admission();
         admission.setAdmissionNumber(admissionNumber);
         admission.setTenant(tenant);
         admission.setRoom(room);
+        if (allocatedBed != null) {
+            admission.setBedId(allocatedBed.getId());
+        }
         admission.setStatus(AdmissionStatus.PENDING);
         admission.setEnrollmentDate(
                 dto.getEnrollmentDate() != null ? dto.getEnrollmentDate() : LocalDate.now());
@@ -124,10 +150,17 @@ public class AdmissionService {
         admission.setConfirmedOn(LocalDateTime.now());
         admissionRepository.save(admission);
 
-        // Update tenant advance payment status
+        // Update tenant advance payment status and bed
         Tenant tenant = admission.getTenant();
         tenant.setAdvancePaidStatus(AdvancePaidStatus.PAID);
         tenant.setStatus("ACTIVE");
+        if (admission.getBedId() != null) {
+            tenant.setBedId(admission.getBedId());
+            bedRepository.findById(admission.getBedId()).ifPresent(bed -> {
+                bed.setStatus("OCCUPIED");
+                bedRepository.save(bed);
+            });
+        }
         tenantRepository.save(tenant);
 
         // Move slot from reserved -> current occupancy
@@ -163,6 +196,16 @@ public class AdmissionService {
                         "Room not found: " + admission.getRoom().getRoomNo()));
 
         Tenant tenant = admission.getTenant();
+
+        // Release physical bed reservation
+        if (admission.getBedId() != null) {
+            bedRepository.findById(admission.getBedId()).ifPresent(bed -> {
+                if ("RESERVED".equalsIgnoreCase(bed.getStatus())) {
+                    bed.setStatus("AVAILABLE");
+                    bedRepository.save(bed);
+                }
+            });
+        }
 
         // Release reservation slot
         room.setReservedCapacity(Math.max(0, room.getReservedCapacity() - 1));
@@ -443,6 +486,11 @@ public class AdmissionService {
         dto.setCreatedAt(admission.getCreatedAt());
         dto.setUpdatedAt(admission.getUpdatedAt());
         dto.setPropertyId(admission.getPropertyId());
+
+        if (admission.getBedId() != null) {
+            dto.setBedId(admission.getBedId());
+            bedRepository.findById(admission.getBedId()).ifPresent(b -> dto.setBedNumber(b.getBedNumber()));
+        }
 
         return dto;
     }

@@ -36,9 +36,18 @@ public class TenantRequestDto {
     private Integer standardRent;
 
     private Long propertyId;
+    private Long bedId;
     private String status;
 
     // Getters and Setters
+
+    public Long getBedId() {
+        return bedId;
+    }
+
+    public void setBedId(Long bedId) {
+        this.bedId = bedId;
+    }
 
     public Long getPropertyId() {
         return propertyId;
