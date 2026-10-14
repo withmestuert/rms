@@ -241,6 +241,7 @@ public class TenantService {
                 .orElseThrow(() -> new ResourceNotFoundException("Tenant not found with UID: " + uid));
 
         tenant.setAdvancePaidStatus(AdvancePaidStatus.PAID);
+        tenant.setStatus("ACTIVE");
         if (amount != null && amount > 0) {
             tenant.setAdvancePaid(amount);
         }

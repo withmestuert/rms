@@ -157,4 +157,36 @@ class VacateRequestServiceTest {
         assertEquals("Rahul Kumar", sampleRoom.getVacatingResident());
         verify(roomRepository, times(1)).save(sampleRoom);
     }
+
+    @Test
+    @DisplayName("Submit duplicate vacate request throws IllegalArgumentException (400) when active request exists")
+    void testSubmitDuplicateVacateRequestThrows() {
+        when(tenantRepository.findById("T-101")).thenReturn(Optional.of(sampleTenant));
+
+        VacateRequest existingPending = VacateRequest.builder()
+                .id(1L)
+                .requestId("VR-1001")
+                .tenantUid("T-101")
+                .tenantName("Rahul Kumar")
+                .roomNo("102")
+                .status(VacateStatus.PENDING)
+                .requestDate(LocalDate.of(2026, 9, 1))
+                .expectedLeavingDate(LocalDate.of(2026, 10, 1))
+                .build();
+
+        when(vacateRepository.findByTenantUidOrderByCreatedAtDesc("T-101"))
+                .thenReturn(java.util.List.of(existingPending));
+
+        VacateRequestDto dto = VacateRequestDto.builder()
+                .tenantUid("T-101")
+                .requestDate(LocalDate.of(2026, 9, 5))
+                .expectedLeavingDate(LocalDate.of(2026, 9, 25))
+                .reason("Relocating for job")
+                .build();
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> vacateService.submitVacateRequest(dto));
+        assertTrue(ex.getMessage().contains("Duplicate submissions are not allowed"));
+        assertTrue(ex.getMessage().contains("VR-1001"));
+    }
 }
+

@@ -84,7 +84,43 @@ public class VacateRequestService {
         // 4. Repay calculation formula
         double repayable = calculateAdvanceRepayable(advancePaid, noticeDays, maintenance, breakage);
 
-        // 5. Generate Request ID
+        // Restrict duplicate entries on vacate_request for the same tenant
+        List<VacateRequest> existingRequests = (tenantUid != null && !tenantUid.isBlank())
+                ? vacateRepository.findByTenantUidOrderByCreatedAtDesc(tenantUid)
+                : vacateRepository.findAll();
+
+        final String finalTenantUid = tenantUid;
+        final String finalAadhaar = aadhaar;
+        final String finalMobile = mobile;
+
+        Optional<VacateRequest> activeOpt = existingRequests.stream()
+                .filter(r -> r.getStatus() == VacateStatus.PENDING || r.getStatus() == VacateStatus.APPROVED)
+                .filter(r -> {
+                    if (finalTenantUid != null && !finalTenantUid.isBlank() && finalTenantUid.equalsIgnoreCase(r.getTenantUid())) {
+                        return true;
+                    }
+                    if (finalAadhaar != null && !finalAadhaar.isBlank() && finalAadhaar.equalsIgnoreCase(r.getAadhaarNo())) {
+                        return true;
+                    }
+                    if (finalMobile != null && !finalMobile.isBlank() && finalMobile.equalsIgnoreCase(r.getMobileNumber())) {
+                        return true;
+                    }
+                    return false;
+                })
+                .findFirst();
+
+        if (activeOpt.isPresent()) {
+            VacateRequest active = activeOpt.get();
+            String statusDesc = (active.getStatus() == VacateStatus.PENDING) ? "pending review" : "already approved";
+            String errorMsg = String.format(
+                    "A vacate request for this tenant is already %s (Request ID: %s, Notice Date: %s). Duplicate submissions are not allowed.",
+                    statusDesc, active.getRequestId(), active.getRequestDate()
+            );
+            log.warn("Rejected duplicate vacate request for tenant {}: {}", tenantUid, errorMsg);
+            throw new IllegalArgumentException(errorMsg);
+        }
+
+        // 5. Generate collision-free Request ID
         String requestId = generateRequestId();
 
         VacateRequest vacateRequest = VacateRequest.builder()
@@ -261,10 +297,23 @@ public class VacateRequestService {
         return toResponseDto(updated);
     }
 
-    private String generateRequestId() {
+    private synchronized String generateRequestId() {
         Optional<VacateRequest> last = vacateRepository.findTopByOrderByIdDesc();
-        long nextId = last.map(r -> r.getId() + 1).orElse(1001L);
-        return String.format("VR-%d", nextId);
+        long nextSeq = last.map(r -> {
+            try {
+                String numPart = r.getRequestId().replaceAll("\\D+", "");
+                return Long.parseLong(numPart) + 1;
+            } catch (Exception e) {
+                return r.getId() != null ? r.getId() + 1000L : 1001L;
+            }
+        }).orElse(1001L);
+
+        String candidate = String.format("VR-%d", nextSeq);
+        while (vacateRepository.existsByRequestId(candidate)) {
+            nextSeq++;
+            candidate = String.format("VR-%d", nextSeq);
+        }
+        return candidate;
     }
 
     private VacateResponseDto toResponseDto(VacateRequest v) {

@@ -26,6 +26,22 @@ public class PropertyResponseDto {
     private String contactNumber;
     private String contactEmail;
     private String status;
+    private Boolean isDeleted;
+    private LocalDateTime deletedAt;
+    private String deletedBy;
+    private String deletionReason;
+    private LocalDateTime ttlExpiresAt;
+    private Long daysRemaining;
+    private Long archiveSnapshotId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    public PropertyResponseDto(
+            Long id, String name, String code, String address, String city, String state, String pincode,
+            String propertyType, Integer totalFloors, Integer totalRooms, String contactNumber, String contactEmail,
+            String status, LocalDateTime createdAt, LocalDateTime updatedAt
+    ) {
+        this(id, name, code, address, city, state, pincode, propertyType, totalFloors, totalRooms,
+                contactNumber, contactEmail, status, false, null, null, null, null, null, null, createdAt, updatedAt);
+    }
 }

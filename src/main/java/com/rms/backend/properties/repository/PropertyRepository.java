@@ -17,4 +17,10 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
     Optional<Property> findByCode(String code);
 
     List<Property> findByStatus(String status);
+
+    List<Property> findByIsDeletedFalse();
+
+    List<Property> findByIsDeletedTrue();
+
+    Optional<Property> findByIdAndIsDeletedFalse(Long id);
 }

@@ -1,7 +1,9 @@
 package com.rms.backend.properties.controller;
 
+import com.rms.backend.properties.dto.PropertyArchiveSnapshotDto;
 import com.rms.backend.properties.dto.PropertyRequestDto;
 import com.rms.backend.properties.dto.PropertyResponseDto;
+import com.rms.backend.properties.dto.PropertySoftDeleteRequestDto;
 import com.rms.backend.properties.service.PropertyService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -21,8 +23,17 @@ public class PropertyController {
     }
 
     @GetMapping
-    public ResponseEntity<List<PropertyResponseDto>> getAllProperties() {
-        return ResponseEntity.ok(propertyService.getAllProperties());
+    public ResponseEntity<List<PropertyResponseDto>> getAllProperties(
+            @RequestParam(name = "includeDeleted", defaultValue = "false") boolean includeDeleted) {
+        if (!includeDeleted) {
+            return ResponseEntity.ok(propertyService.getAllProperties());
+        }
+        return ResponseEntity.ok(propertyService.getAllProperties(includeDeleted));
+    }
+
+    @GetMapping("/archived")
+    public ResponseEntity<List<PropertyResponseDto>> getArchivedProperties() {
+        return ResponseEntity.ok(propertyService.getArchivedProperties());
     }
 
     @GetMapping("/{id}")
@@ -42,6 +53,34 @@ public class PropertyController {
             @Valid @RequestBody PropertyRequestDto dto) {
         PropertyResponseDto updated = propertyService.updateProperty(id, dto);
         return ResponseEntity.ok(updated);
+    }
+
+    /**
+     * Protected Soft Deletion with Pre-Deletion Snapshot Manifest and TTL Grace Period.
+     */
+    @PostMapping("/{id}/soft-delete")
+    public ResponseEntity<PropertyResponseDto> softDeleteProperty(
+            @PathVariable Long id,
+            @RequestBody PropertySoftDeleteRequestDto dto) {
+        PropertyResponseDto decommissioned = propertyService.softDeleteProperty(id, dto);
+        return ResponseEntity.ok(decommissioned);
+    }
+
+    /**
+     * One-click restore for soft-deleted properties during their TTL grace period.
+     */
+    @PostMapping("/{id}/restore")
+    public ResponseEntity<PropertyResponseDto> restoreProperty(@PathVariable Long id) {
+        PropertyResponseDto restored = propertyService.restoreProperty(id);
+        return ResponseEntity.ok(restored);
+    }
+
+    /**
+     * Download or inspect the permanent audit manifest snapshot for a property.
+     */
+    @GetMapping("/{id}/snapshot")
+    public ResponseEntity<PropertyArchiveSnapshotDto> getPropertySnapshot(@PathVariable Long id) {
+        return ResponseEntity.ok(propertyService.getArchivedSnapshot(id));
     }
 
     @DeleteMapping("/{id}")

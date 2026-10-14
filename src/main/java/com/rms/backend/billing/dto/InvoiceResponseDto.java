@@ -18,6 +18,8 @@ public class InvoiceResponseDto {
     private String roomNo;
     private String monthYear;
     private Integer amount;
+    private Integer paidAmount;
+    private Integer remainingBalance;
     private String dueDate;
     private InvoiceStatus status;
     private String paidOn;

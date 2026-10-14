@@ -23,4 +23,7 @@ public class LedgerTransactionResponseDto {
     private Long runningBalance;
     private LocalDateTime createdAt;
     private Long propertyId;
+    private String tenantUid;
+    private Long invoiceId;
+    private Long paymentId;
 }
