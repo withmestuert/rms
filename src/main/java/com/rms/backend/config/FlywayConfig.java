@@ -23,8 +23,6 @@ public class FlywayConfig {
                 .dataSource(dataSource)
                 .locations("classpath:db/migration")
                 .baselineOnMigrate(true)
-                .baselineVersion("0")
-                .baselineDescription("Baseline_As_Is_Schema")
                 .load();
         return flyway;
     }
