@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -50,8 +52,8 @@ public class PropertyArchiveSnapshot {
     @Column(name = "total_advance_held")
     private Double totalAdvanceHeld;
 
-    @Lob
-    @Column(name = "snapshot_json", columnDefinition = "TEXT", nullable = false)
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "snapshot_json", columnDefinition = "jsonb", nullable = false)
     private String snapshotJson;
 
     @Column(name = "archived_at", nullable = false)
