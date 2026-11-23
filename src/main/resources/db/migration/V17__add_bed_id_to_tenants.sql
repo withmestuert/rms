@@ -1,0 +1,2 @@
+ALTER TABLE tenants
+ADD COLUMN bed_id BIGINT;
