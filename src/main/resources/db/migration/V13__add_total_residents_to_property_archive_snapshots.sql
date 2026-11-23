@@ -1,0 +1,2 @@
+ALTER TABLE property_archive_snapshots
+ADD COLUMN total_residents INTEGER;
