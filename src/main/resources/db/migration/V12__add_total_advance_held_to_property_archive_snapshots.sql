@@ -1,0 +1,2 @@
+ALTER TABLE property_archive_snapshots
+ADD COLUMN total_advance_held DOUBLE PRECISION;
